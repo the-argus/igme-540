@@ -2,6 +2,10 @@
 
 #include <d3d11.h>
 #include <wrl/client.h>
+#include <array>
+#include <vector>
+#include <memory>
+#include <string>
 
 class Game
 {
@@ -23,6 +27,20 @@ private:
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void LoadShaders();
 	void CreateGeometry();
+	void UIBeginFrame(float deltaTime) noexcept;
+	void UIEndFrame() noexcept;
+	void BuildUI() noexcept;
+
+	std::array<float, 4> m_backgroundColor = { 0 };
+	// NOTE: number of samples is tied to the percieved scroll speed of the graph,
+	// which also moves at a frame dependent speed
+	static constexpr size_t numframerateSamples = 5000;
+	std::unique_ptr<std::array<float, numframerateSamples>> m_framerateHistory;
+	// NOTE: imgui uses ascii, no wstring
+	std::vector<std::string> m_lastTypedStrings;
+	std::string m_nextStringUp;
+	static constexpr size_t maxStrings = 3;
+	bool m_demoWindowVisible = false;
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the

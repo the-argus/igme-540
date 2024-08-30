@@ -5,7 +5,13 @@
 #include "PathHelpers.h"
 #include "Window.h"
 
+#include "imgui.h"
+#include "imgui_impl_dx11.h"
+#include "imgui_impl_win32.h"
+
 #include <DirectXMath.h>
+
+#include <array>
 
 // Needed for a helper function to load pre-compiled shader files
 #pragma comment(lib, "d3dcompiler.lib")
@@ -20,6 +26,10 @@ using namespace DirectX;
 // --------------------------------------------------------
 void Game::Initialize()
 {
+	// alloc framerate history buffer and fill with zeroes
+	m_framerateHistory = std::make_unique<decltype(m_framerateHistory)::element_type>();
+	std::fill(m_framerateHistory->begin(), m_framerateHistory->end(), 0.0f);
+
 	// Helper methods for loading shaders, creating some basic
 	// geometry to draw and some simple camera matrices.
 	//  - You'll be expanding and/or replacing these later
@@ -47,6 +57,16 @@ void Game::Initialize()
 		Graphics::Context->VSSetShader(vertexShader.Get(), 0, 0);
 		Graphics::Context->PSSetShader(pixelShader.Get(), 0, 0);
 	}
+
+	// Initialize ImGui itself & platform/renderer backends
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui_ImplWin32_Init(Window::Handle());
+	ImGui_ImplDX11_Init(Graphics::Device.Get(), Graphics::Context.Get());
+	// Pick a style (uncomment one of these 3)
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsLight();
+	//ImGui::StyleColorsClassic();
 }
 
 
@@ -58,7 +78,9 @@ void Game::Initialize()
 // --------------------------------------------------------
 Game::~Game()
 {
-
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 
@@ -225,6 +247,27 @@ void Game::CreateGeometry()
 	}
 }
 
+void Game::UIBeginFrame(float deltaTime) noexcept
+{
+	// Feed fresh data to ImGui
+	ImGuiIO& io = ImGui::GetIO();
+	io.DeltaTime = deltaTime;
+	io.DisplaySize.x = (float)Window::Width();
+	io.DisplaySize.y = (float)Window::Height();
+	// Reset the frame
+	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+	// Determine new input capture
+	Input::SetKeyboardCapture(io.WantCaptureKeyboard);
+	Input::SetMouseCapture(io.WantCaptureMouse);
+}
+
+void Game::UIEndFrame() noexcept
+{
+	ImGui::Render(); // Turns this frame’s UI into renderable triangles
+	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
+}
 
 // --------------------------------------------------------
 // Handle resizing to match the new window size
@@ -243,8 +286,64 @@ void Game::Update(float deltaTime, float totalTime)
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
+
+	// update fps sample graph
+	{
+		// push all the other samples down one
+		const auto lastSampleIndex = m_framerateHistory->size() - 1;
+		for (size_t i = 0; i < lastSampleIndex; ++i)
+			(*m_framerateHistory)[i] = (*m_framerateHistory)[i + 1];
+		// put current framerate on the end of the graph
+		(*m_framerateHistory)[lastSampleIndex] = ImGui::GetIO().Framerate;
+	}
+
+	// UI frame ended in Draw()
+	UIBeginFrame(deltaTime);
+
+	BuildUI();
 }
 
+
+void Game::BuildUI() noexcept
+{
+	ImGui::Begin("debug menu");
+
+	ImGui::Text("Framerate: %f", ImGui::GetIO().Framerate);
+	ImGui::Text("Window pixel dimensions: %d / %d", Window::Width(), Window::Height());
+	ImGui::ColorEdit4("Background Color", m_backgroundColor.data(), 0);
+
+	if (ImGui::Button("Show ImGui Demo Window", { 200, 50 }))
+		m_demoWindowVisible = !m_demoWindowVisible;
+
+	if (m_demoWindowVisible)
+		ImGui::ShowDemoWindow();
+
+	// plot the fps samples
+	ImGui::PlotHistogram("FPS Graph", m_framerateHistory->data(), static_cast<int>(m_framerateHistory->size()));
+
+	std::array<char, 64> textBuffer = { 0 };
+	if (ImGui::InputText("Text Entry", textBuffer.data(), textBuffer.size())) {
+		m_nextStringUp = textBuffer.data();
+	}
+	if (ImGui::Button("Submit") && !m_nextStringUp.empty()) {
+		m_lastTypedStrings.emplace_back(m_nextStringUp);
+		m_nextStringUp.clear();
+		// if it gets too big, erase one like a LIFO
+		if (m_lastTypedStrings.size() > maxStrings)
+			m_lastTypedStrings.erase(m_lastTypedStrings.begin());
+	}
+
+	// display pushed text
+	for (const auto& str : m_lastTypedStrings) {
+		ImGui::BulletText(str.c_str());
+	}
+
+	const char* last = m_lastTypedStrings.empty() ? "NO STRING ENTERED" : m_lastTypedStrings.back().c_str();
+	if (ImGui::Button("Print the last entered word", {200, 50}))
+		printf("last word: %s\n", last);
+
+	ImGui::End();
+}
 
 // --------------------------------------------------------
 // Clear the screen, redraw everything, present to the user
@@ -256,8 +355,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	// - At the beginning of Game::Draw() before drawing *anything*
 	{
 		// Clear the back buffer (erase what's on screen) and depth buffer
-		const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
-		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(),	color);
+		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(),	m_backgroundColor.data());
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
@@ -286,6 +384,9 @@ void Game::Draw(float deltaTime, float totalTime)
 			0,     // Offset to the first index we want to use
 			0);    // Offset to add to each index when looking up vertices
 	}
+
+	// begun in Update()
+	UIEndFrame();
 
 	// Frame END
 	// - These should happen exactly ONCE PER FRAME
