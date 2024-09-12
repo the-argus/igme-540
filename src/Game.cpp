@@ -160,37 +160,69 @@ void Game::LoadShaders()
 // --------------------------------------------------------
 void Game::CreateGeometry()
 {
-	// Create some temporary variables to represent colors
-	// - Not necessary, just makes things more readable
-	XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
+	constexpr XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	constexpr XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	constexpr XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
 
-	// Set up the vertices of the triangle we would like to draw
-	// - We're going to copy this array, exactly as it exists in CPU memory
-	//    over to a Direct3D-controlled data structure on the GPU (the vertex buffer)
-	// - Note: Since we don't have a camera or really any concept of
-	//    a "3d world" yet, we're simply describing positions within the
-	//    bounds of how the rasterizer sees our screen: [-1 to +1] on X and Y
-	// - This means (0,0) is at the very center of the screen.
-	// - These are known as "Normalized Device Coordinates" or "Homogeneous 
-	//    Screen Coords", which are ways to describe a position without
-	//    knowing the exact size (in pixels) of the image/window/etc.  
-	// - Long story short: Resizing the window also resizes the triangle,
-	//    since we're describing the triangle in terms of the window itself
-	Vertex vertices[] =
-	{
-		{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red },
-		{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
-		{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
+	Vertex triangle_vertices[] = {
+		{ {+0.0f, +0.5f, +0.0f}, red },
+		{ {+0.5f, -0.5f, +0.0f}, blue },
+		{ {-0.5f, -0.5f, +0.0f}, green },
 	};
 
-	// Set up indices, which tell us which vertices to use and in which order
-	// - This is redundant for just 3 vertices, but will be more useful later
-	// - Indices are technically not required if the vertices are in the buffer 
-	//    in the correct order and each one will be used exactly once
-	// - But just to see how it's done...
-	unsigned int indices[] = { 0, 1, 2 };
+	u32 triangle_indices[] = { 0, 1, 2 };
+
+	constexpr float pi = 3.141592653f;
+	constexpr float degtorad = pi / 180.f;
+
+	Vertex hexagon_vertices[] = {
+		{ {cosf(degtorad * 30 ), sinf(degtorad * 30 ), 0}, red},
+		{ {cosf(degtorad * 90 ), sinf(degtorad * 90 ), 0}, red},
+		{ {cosf(degtorad * 150), sinf(degtorad * 150), 0}, red},
+		{ {cosf(degtorad * 210), sinf(degtorad * 210), 0}, red},
+		{ {cosf(degtorad * 270), sinf(degtorad * 270), 0}, red},
+		{ {cosf(degtorad * 330), sinf(degtorad * 330), 0}, red},
+	};
+	u32 hexagon_indices[] = { 5, 4, 0, 4, 3, 0, 3, 2, 0, 2, 1, 0 };
+
+	Vertex droplet_vertices[] = {
+		// top point
+		{ {0, 1.5f, 0}, blue },
+		// bottom circle
+		{ { cosf(degtorad * 0), sinf(degtorad * 0), 0}, red },
+		{ { cosf(degtorad * -45), sinf(degtorad * -45), 0}, red },
+		{ { cosf(degtorad * -90), sinf(degtorad * -90), 0}, red },
+		{ { cosf(degtorad * -135), sinf(degtorad * -135), 0}, red },
+		{ { cosf(degtorad * -180), sinf(degtorad * -90), 0}, red },
+	};
+	u32 droplet_indices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
+
+	// offset the droplet by an amount
+	{
+		XMFLOAT3 droplet_offset = { -0.5, 0.5, 0 };
+		XMVECTOR droplet_offset_register = XMLoadFloat3(&droplet_offset);
+		for (auto& v : droplet_vertices) {
+			XMVECTOR pos = XMLoadFloat3(&v.Position);
+			pos += droplet_offset_register;
+			XMStoreFloat3(&v.Position, pos);
+		}
+	}
+
+	// offset the hexagon by an amount
+	{
+		XMFLOAT3 hexagon_offset = { 0.5, 0.5, 0 };
+		XMVECTOR hexagon_offset_register = XMLoadFloat3(&hexagon_offset);
+		for (auto& v : hexagon_vertices) {
+			XMVECTOR pos = XMLoadFloat3(&v.Position);
+			pos += hexagon_offset_register;
+			XMStoreFloat3(&v.Position, pos);
+		}
+	}
+
+	// upload all three meshes to the GPU
+	m_alwaysLoadedMeshes.emplace_back(triangle_vertices, triangle_indices);
+	m_alwaysLoadedMeshes.emplace_back(hexagon_vertices, hexagon_indices);
+	m_alwaysLoadedMeshes.emplace_back(droplet_vertices, droplet_indices);
 }
 
 void Game::UIBeginFrame(float deltaTime) noexcept
@@ -285,7 +317,7 @@ void Game::BuildUI() noexcept
 	}
 
 	const char* last = m_lastTypedStrings.empty() ? "NO STRING ENTERED" : m_lastTypedStrings.back().c_str();
-	if (ImGui::Button("Print the last entered word", {200, 50}))
+	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
 
 	ImGui::End();
@@ -301,34 +333,14 @@ void Game::Draw(float deltaTime, float totalTime)
 	// - At the beginning of Game::Draw() before drawing *anything*
 	{
 		// Clear the back buffer (erase what's on screen) and depth buffer
-		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(),	m_backgroundColor.data());
+		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
-	// DRAW geometry
-	// - These steps are generally repeated for EACH object you draw
-	// - Other Direct3D calls will also be necessary to do more complex things
+	// draw all the meshes that are always loaded
+	for (auto& mesh : m_alwaysLoadedMeshes)
 	{
-		// Set buffers in the input assembler (IA) stage
-		//  - Do this ONCE PER OBJECT, since each object may have different geometry
-		//  - For this demo, this step *could* simply be done once during Init()
-		//  - However, this needs to be done between EACH DrawIndexed() call
-		//     when drawing different geometry, so it's here as an example
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
-		Graphics::Context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
-		Graphics::Context->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-
-		// Tell Direct3D to draw
-		//  - Begins the rendering pipeline on the GPU
-		//  - Do this ONCE PER OBJECT you intend to draw
-		//  - This will use all currently set Direct3D resources (shaders, buffers, etc)
-		//  - DrawIndexed() uses the currently set INDEX BUFFER to look up corresponding
-		//     vertices in the currently set VERTEX BUFFER
-		Graphics::Context->DrawIndexed(
-			3,     // The number of indices to use (we could draw a subset if we wanted)
-			0,     // Offset to the first index we want to use
-			0);    // Offset to add to each index when looking up vertices
+		mesh.BindBuffersAndDraw();
 	}
 
 	// begun in Update()

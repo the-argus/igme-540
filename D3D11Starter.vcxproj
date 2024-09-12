@@ -169,6 +169,7 @@
     <ClCompile Include="src/Main.cpp" />
     <ClCompile Include="src/PathHelpers.cpp" />
     <ClCompile Include="src/Window.cpp" />
+    <ClCompile Include="src\Mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="deps\imgui\include\imconfig.h" />
@@ -185,6 +186,7 @@
     <ClInclude Include="src/include/PathHelpers.h" />
     <ClInclude Include="src/include/Vertex.h" />
     <ClInclude Include="src/include/Window.h" />
+    <ClInclude Include="src\include\Mesh.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders/PixelShader.hlsl">

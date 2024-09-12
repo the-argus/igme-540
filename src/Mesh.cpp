@@ -13,6 +13,34 @@ Mesh::Mesh(span<Vertex> vertices, span<u32> indices) noexcept :
 {
 }
 
+// DRAW geometry
+// - These steps are generally repeated for EACH object you draw
+// - Other Direct3D calls will also be necessary to do more complex things
+void Mesh::BindBuffersAndDraw() noexcept
+{
+	// Set buffers in the input assembler (IA) stage
+	//  - Do this ONCE PER OBJECT, since each object may have different geometry
+	//  - For this demo, this step *could* simply be done once during Init()
+	//  - However, this needs to be done between EACH DrawIndexed() call
+	//     when drawing different geometry, so it's here as an example
+	constexpr u64 numBuffers = 1; // if you increase this, increase strides and put vertex buffers in array for IASetVertexBuffers call
+	const UINT stride[numBuffers] = { sizeof(Vertex) };
+	const UINT offset[numBuffers] = { 0 };
+	Graphics::Context->IASetVertexBuffers(0, numBuffers, m_vertexBuffer.GetAddressOf(), stride, offset);
+	Graphics::Context->IASetIndexBuffer(m_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+
+	// Tell Direct3D to draw
+	//  - Begins the rendering pipeline on the GPU
+	//  - Do this ONCE PER OBJECT you intend to draw
+	//  - This will use all currently set Direct3D resources (shaders, buffers, etc)
+	//  - DrawIndexed() uses the currently set INDEX BUFFER to look up corresponding
+	//     vertices in the currently set VERTEX BUFFER
+	Graphics::Context->DrawIndexed(
+		UINT(m_numIndices),
+		0,     // Offset to the first index we want to use
+		0);    // Offset to add to each index when looking up vertices
+}
+
 // Create a VERTEX BUFFER
 // - This holds the vertex data of triangles for a single object
 // - This buffer is created on the GPU, which is where the data needs to
@@ -22,19 +50,20 @@ com_p<ID3D11Buffer> Mesh::UploadVertexBuffer(span<Vertex> verts) noexcept
 	// First, we need to describe the buffer we want Direct3D to make on the GPU
 	//  - Note that this variable is created on the stack since we only need it once
 	//  - After the buffer is created, this description variable is unnecessary
-	D3D11_BUFFER_DESC vbd = {};
-	vbd.Usage = D3D11_USAGE_IMMUTABLE;	// Will NEVER change
-	vbd.ByteWidth = verts.size_bytes();
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER; // Tells Direct3D this is a vertex buffer
-	vbd.CPUAccessFlags = 0;	// Note: We cannot access the data from C++ (this is good)
-	vbd.MiscFlags = 0;
-	vbd.StructureByteStride = 0;
+	const D3D11_BUFFER_DESC vbd = {
+		.ByteWidth = UINT(verts.size_bytes()),
+		.BindFlags = D3D11_BIND_VERTEX_BUFFER, // Tells Direct3D this is a vertex buffer
+		.CPUAccessFlags = 0,	// Note: We cannot access the data from C++ (this is good)
+		.MiscFlags = 0,
+		.StructureByteStride = 0,
+	};
 
 	// Create the proper struct to hold the initial vertex data
 	// - This is how we initially fill the buffer with data
 	// - Essentially, we're specifying a pointer to the data to copy
-	D3D11_SUBRESOURCE_DATA initialVertexData = {};
-	initialVertexData.pSysMem = verts.data(); // pSysMem = Pointer to System Memory
+	const D3D11_SUBRESOURCE_DATA initialVertexData = {
+		.pSysMem = verts.data(), // pSysMem = Pointer to System Memory
+	};
 
 	// Actually create the buffer on the GPU with the initial data
 	// - Once we do this, we'll NEVER CHANGE DATA IN THE BUFFER AGAIN
@@ -53,17 +82,19 @@ com_p<ID3D11Buffer> Mesh::UploadIndexBuffer(span<u32> indices) noexcept
 	// Describe the buffer, as we did above, with two major differences
 	//  - Byte Width (3 unsigned integers vs. 3 whole vertices)
 	//  - Bind Flag (used as an index buffer instead of a vertex buffer) 
-	D3D11_BUFFER_DESC ibd = {};
-	ibd.Usage = D3D11_USAGE_IMMUTABLE;	// Will NEVER change
-	ibd.ByteWidth = indices.size_bytes();
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;	// Tells Direct3D this is an index buffer
-	ibd.CPUAccessFlags = 0;	// Note: We cannot access the data from C++ (this is good)
-	ibd.MiscFlags = 0;
-	ibd.StructureByteStride = 0;
+	const D3D11_BUFFER_DESC ibd = {
+		.ByteWidth = UINT(indices.size_bytes()),
+		.Usage = D3D11_USAGE_IMMUTABLE,	// Will NEVER change
+		.BindFlags = D3D11_BIND_INDEX_BUFFER,	// Tells Direct3D this is an index buffer
+		.CPUAccessFlags = 0,	// Note: We cannot access the data from C++ (this is good)
+		.MiscFlags = 0,
+		.StructureByteStride = 0,
+	};
 
 	// Specify the initial data for this buffer, similar to above
-	D3D11_SUBRESOURCE_DATA initialIndexData = {};
-	initialIndexData.pSysMem = indices.data(); // pSysMem = Pointer to System Memory
+	const D3D11_SUBRESOURCE_DATA initialIndexData = {
+		.pSysMem = indices.data(), // pSysMem = Pointer to System Memory
+	};
 
 	// Actually create the buffer with the initial data
 	// - Once we do this, we'll NEVER CHANGE THE BUFFER AGAIN

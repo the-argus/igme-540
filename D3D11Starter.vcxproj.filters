@@ -60,6 +60,9 @@
     <ClCompile Include="deps\imgui\imgui_widgets.cpp">
       <Filter>imgui\impl</Filter>
     </ClCompile>
+    <ClCompile Include="src\Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/include/Window.h">
@@ -103,6 +106,9 @@
     </ClInclude>
     <ClInclude Include="deps\imgui\include\imstb_truetype.h">
       <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Mesh.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

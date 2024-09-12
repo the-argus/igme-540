@@ -10,6 +10,13 @@ namespace ggp
 {
 	class Mesh {
 	public:
+		// no copy
+		Mesh(const Mesh&) = delete;
+		const Mesh& operator=(const Mesh&) = delete;
+		// yes move, comptr should handle the move
+		Mesh(Mesh&&) noexcept = default;
+		Mesh&& operator=(Mesh&&) noexcept = delete;
+
 		/// <summary>
 		/// Construct a mesh by uploading the given vertices and indices to the GPU. the resulting
 		/// mesh will store only handles to the GPU memory. it is the caller's job to free vertex
@@ -18,6 +25,8 @@ namespace ggp
 		/// <param name="verts">The array of vertices to upload</param>
 		/// <param name="indices">Index array. indices should start from the beginning of the given vertex array at 0</param>
 		Mesh(std::span<Vertex> verts, std::span<u32> indices) noexcept;
+
+		void BindBuffersAndDraw() noexcept;
 
 		/// <summary>
 		/// Identical to the equivalent constructor but with explicit name to show gpu transfer is happening
