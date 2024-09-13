@@ -16,7 +16,7 @@ Mesh::Mesh(span<Vertex> vertices, span<u32> indices) noexcept :
 // DRAW geometry
 // - These steps are generally repeated for EACH object you draw
 // - Other Direct3D calls will also be necessary to do more complex things
-void Mesh::BindBuffersAndDraw() noexcept
+void Mesh::BindBuffersAndDraw() const noexcept
 {
 	// Set buffers in the input assembler (IA) stage
 	//  - Do this ONCE PER OBJECT, since each object may have different geometry

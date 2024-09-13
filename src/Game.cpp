@@ -176,24 +176,24 @@ void Game::CreateGeometry()
 	constexpr float degtorad = pi / 180.f;
 
 	Vertex hexagon_vertices[] = {
-		{ {cosf(degtorad * 30 ), sinf(degtorad * 30 ), 0}, red},
-		{ {cosf(degtorad * 90 ), sinf(degtorad * 90 ), 0}, red},
-		{ {cosf(degtorad * 150), sinf(degtorad * 150), 0}, red},
-		{ {cosf(degtorad * 210), sinf(degtorad * 210), 0}, red},
-		{ {cosf(degtorad * 270), sinf(degtorad * 270), 0}, red},
-		{ {cosf(degtorad * 330), sinf(degtorad * 330), 0}, red},
+		{ {0.1f * cosf(degtorad * 30), 0.1f * sinf(degtorad * 30), 0}, red},
+		{ {0.1f * cosf(degtorad * 90), 0.1f * sinf(degtorad * 90), 0}, blue},
+		{ {0.1f * cosf(degtorad * 150), 0.1f * sinf(degtorad * 150), 0}, green},
+		{ {0.1f * cosf(degtorad * 210), 0.1f * sinf(degtorad * 210), 0}, red},
+		{ {0.1f * cosf(degtorad * 270), 0.1f * sinf(degtorad * 270), 0}, blue},
+		{ {0.1f * cosf(degtorad * 330), 0.1f * sinf(degtorad * 330), 0}, green},
 	};
 	u32 hexagon_indices[] = { 5, 4, 0, 4, 3, 0, 3, 2, 0, 2, 1, 0 };
 
 	Vertex droplet_vertices[] = {
 		// top point
-		{ {0, 1.5f, 0}, blue },
+		{ {0, .15f, 0}, blue },
 		// bottom circle
-		{ { cosf(degtorad * 0), sinf(degtorad * 0), 0}, red },
-		{ { cosf(degtorad * -45), sinf(degtorad * -45), 0}, red },
-		{ { cosf(degtorad * -90), sinf(degtorad * -90), 0}, red },
-		{ { cosf(degtorad * -135), sinf(degtorad * -135), 0}, red },
-		{ { cosf(degtorad * -180), sinf(degtorad * -90), 0}, red },
+		{ { 0.1f * cosf(degtorad * 0),    0.1f * sinf(degtorad * 0), 0}, red },
+		{ { 0.1f * cosf(degtorad * -45),  0.1f * sinf(degtorad * -45), 0}, red },
+		{ { 0.1f * cosf(degtorad * -90),  0.1f * sinf(degtorad * -90), 0}, red },
+		{ { 0.1f * cosf(degtorad * -135), 0.1f * sinf(degtorad * -135), 0}, red },
+		{ { 0.1f * cosf(degtorad * -180), 0.1f * sinf(degtorad * -180), 0}, red },
 	};
 	u32 droplet_indices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
 
@@ -319,6 +319,38 @@ void Game::BuildUI() noexcept
 	const char* last = m_lastTypedStrings.empty() ? "NO STRING ENTERED" : m_lastTypedStrings.back().c_str();
 	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
+
+	{
+		std::array<char, 64> buf;
+		for (size_t i = 0; i < m_alwaysLoadedMeshes.size(); ++i) {
+			// NOTE: using snprintf here instead of std::string or BulletTextV because I was having issues with each and was tired
+			// TODO: make this use BulletTextV and TreeNodeExV
+			int bytes_printed = std::snprintf(buf.data(), buf.size(), "mesh %zu", i);
+			assert(bytes_printed < buf.size());
+
+			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
+			if (ImGui::TreeNodeEx(buf.data(), flag))
+			{
+				const ggp::Mesh& mesh = m_alwaysLoadedMeshes[i];
+				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", mesh.GetVertexCount());
+				assert(bytes_printed < buf.size());
+				ImGui::BulletText(buf.data());
+
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", mesh.GetIndexCount());
+				assert(bytes_printed < buf.size());
+				ImGui::BulletText(buf.data());
+
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", mesh.GetIndexCount() / 3);
+				assert(bytes_printed < buf.size());
+				ImGui::BulletText(buf.data());
+
+				// close this treenode and move to next one
+				ImGui::TreePop();
+			}
+		}
+	}
 
 	ImGui::End();
 }

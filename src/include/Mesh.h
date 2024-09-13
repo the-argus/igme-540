@@ -26,17 +26,17 @@ namespace ggp
 		/// <param name="indices">Index array. indices should start from the beginning of the given vertex array at 0</param>
 		Mesh(std::span<Vertex> verts, std::span<u32> indices) noexcept;
 
-		void BindBuffersAndDraw() noexcept;
+		void BindBuffersAndDraw() const noexcept;
 
 		/// <summary>
 		/// Identical to the equivalent constructor but with explicit name to show gpu transfer is happening
 		/// </summary>
 		inline static Mesh UploadToGPU(std::span<Vertex> verts, std::span<u32> indices) noexcept { return Mesh(verts, indices); }
 
-		inline com_p<ID3D11Buffer> GetVertexBuffer() noexcept { return m_vertexBuffer; }
-		inline com_p<ID3D11Buffer> GetIndexBuffer() noexcept { return m_indexBuffer; }
-		inline u64 GetIndexCount() noexcept { return m_numIndices; }
-		inline u64 GetVertexCount() noexcept { return m_numVertices; }
+		inline com_p<ID3D11Buffer> GetVertexBuffer() const noexcept { return m_vertexBuffer; }
+		inline com_p<ID3D11Buffer> GetIndexBuffer() const noexcept { return m_indexBuffer; }
+		inline u64 GetIndexCount() const noexcept { return m_numIndices; }
+		inline u64 GetVertexCount() const noexcept { return m_numVertices; }
 
 	private:
 		// initialize a vertex buffer handle
