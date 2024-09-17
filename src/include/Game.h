@@ -50,7 +50,7 @@ private:
 	std::vector<ggp::Mesh> m_alwaysLoadedMeshes;
 
 	ggp::com_p<ID3D11Buffer> m_constantBuffer;
-	std::unique_ptr<ggp::cb::OffsetAndColor> m_constantBufferMem;
+	ggp::cb::OffsetAndColor m_constantBufferCPUSide;
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the

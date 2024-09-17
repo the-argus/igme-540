@@ -4,6 +4,7 @@
 #include "Input.h"
 #include "PathHelpers.h"
 #include "Window.h"
+#include "memutils.h"
 
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
@@ -60,25 +61,23 @@ void Game::Initialize()
 	}
 
 	{
-		// make cpu side buffer
-		m_constantBufferMem = std::make_unique<cb::OffsetAndColor>();
-		*m_constantBufferMem = {
-			.color = { 0.0f, 0.0f, 0.0f, 0.0f },
-			.offset = { 0.0f, 0.0f, 0.0f },
-		};
-
-		// send buffer to gpu as dynamic constant buffer
+		// create dynamic constant buffer on gpu
 		const D3D11_BUFFER_DESC desc{
-			.ByteWidth = sizeof(cb::OffsetAndColor),
+			.ByteWidth = alignsize<cb::OffsetAndColor, 16>::value,
 			.Usage = D3D11_USAGE_DYNAMIC,
 			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
-			.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE,
-			.StructureByteStride = sizeof(cb::OffsetAndColor),
+			.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
 		};
-		const D3D11_SUBRESOURCE_DATA subResourceData{
-			.pSysMem = m_constantBufferMem.get(),
+		Graphics::Device->CreateBuffer(&desc, nullptr, m_constantBuffer.GetAddressOf());
+
+		// initial offset and color. not mapped / put into gpu until draw
+		m_constantBufferCPUSide = {
+			.color = { 1.0f, 0.5f, 0.5f, 1.0f },
+			.offset = { 0.25f, 0.0f, 0.0f },
 		};
-		Graphics::Device->CreateBuffer(&desc, &subResourceData, m_constantBuffer.GetAddressOf());
+
+		// bind cb and keep binding for the whole program
+		Graphics::Context->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
 	}
 
 	// Initialize ImGui itself & platform/renderer backends
@@ -343,6 +342,9 @@ void Game::BuildUI() noexcept
 	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
 
+	ImGui::DragFloat2("Offset", &m_constantBufferCPUSide.offset.x, 0.01f, -2.0f, 2.0f);
+	ImGui::ColorEdit4("Color", &m_constantBufferCPUSide.color.x);
+
 	{
 		std::array<char, 64> buf;
 		for (size_t i = 0; i < m_alwaysLoadedMeshes.size(); ++i) {
@@ -390,6 +392,14 @@ void Game::Draw(float deltaTime, float totalTime)
 		// Clear the back buffer (erase what's on screen) and depth buffer
 		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	}
+
+	// send cb to shaders
+	{
+		D3D11_MAPPED_SUBRESOURCE cbMapped{};
+		Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
+		*(cb::OffsetAndColor*)cbMapped.pData = m_constantBufferCPUSide;
+		Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
 	}
 
 	// draw all the meshes that are always loaded
