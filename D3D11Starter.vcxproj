@@ -186,6 +186,7 @@
     <ClInclude Include="src/include/PathHelpers.h" />
     <ClInclude Include="src/include/Vertex.h" />
     <ClInclude Include="src/include/Window.h" />
+    <ClInclude Include="src\include\ConstantBuffers.h" />
     <ClInclude Include="src\include\Mesh.h" />
   </ItemGroup>
   <ItemGroup>

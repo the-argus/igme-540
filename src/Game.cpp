@@ -19,6 +19,7 @@
 
 // For the DirectX Math library
 using namespace DirectX;
+using namespace ggp; // TODO: maybe just put Game in ggp namespace
 
 // --------------------------------------------------------
 // Called once per program, after the window and graphics API
@@ -56,6 +57,28 @@ void Game::Initialize()
 		//    these calls will need to happen multiple times per frame
 		Graphics::Context->VSSetShader(vertexShader.Get(), 0, 0);
 		Graphics::Context->PSSetShader(pixelShader.Get(), 0, 0);
+	}
+
+	{
+		// make cpu side buffer
+		m_constantBufferMem = std::make_unique<cb::OffsetAndColor>();
+		*m_constantBufferMem = {
+			.color = { 0.0f, 0.0f, 0.0f, 0.0f },
+			.offset = { 0.0f, 0.0f, 0.0f },
+		};
+
+		// send buffer to gpu as dynamic constant buffer
+		const D3D11_BUFFER_DESC desc{
+			.ByteWidth = sizeof(cb::OffsetAndColor),
+			.Usage = D3D11_USAGE_DYNAMIC,
+			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
+			.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE,
+			.StructureByteStride = sizeof(cb::OffsetAndColor),
+		};
+		const D3D11_SUBRESOURCE_DATA subResourceData{
+			.pSysMem = m_constantBufferMem.get(),
+		};
+		Graphics::Device->CreateBuffer(&desc, &subResourceData, m_constantBuffer.GetAddressOf());
 	}
 
 	// Initialize ImGui itself & platform/renderer backends
@@ -331,7 +354,7 @@ void Game::BuildUI() noexcept
 			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 			if (ImGui::TreeNodeEx(buf.data(), flag))
 			{
-				const ggp::Mesh& mesh = m_alwaysLoadedMeshes[i];
+				const Mesh& mesh = m_alwaysLoadedMeshes[i];
 				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", mesh.GetVertexCount());

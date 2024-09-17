@@ -8,6 +8,8 @@
 #include <string>
 
 #include "Mesh.h"
+#include "ConstantBuffers.h"
+#include "ggp_com_pointer.h"
 
 class Game
 {
@@ -47,14 +49,17 @@ private:
 	// meshes that load at the start of the game and unload at the end- avoid lifetime management (for now)
 	std::vector<ggp::Mesh> m_alwaysLoadedMeshes;
 
+	ggp::com_p<ID3D11Buffer> m_constantBuffer;
+	std::unique_ptr<ggp::cb::OffsetAndColor> m_constantBufferMem;
+
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
 	//     Component Object Model, which DirectX objects do
 	//  - More info here: https://github.com/Microsoft/DirectXTK/wiki/ComPtr
 
 	// Shaders and shader-related constructs
-	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader;
-	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader;
-	Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout;
+	ggp::com_p<ID3D11PixelShader> pixelShader;
+	ggp::com_p<ID3D11VertexShader> vertexShader;
+	ggp::com_p<ID3D11InputLayout> inputLayout;
 };
 
