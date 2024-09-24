@@ -17,6 +17,16 @@ namespace ggp
 		static constexpr size_t value = round_up_to_multiple_of<align>(sizeof T);
 	};
 
+	size_t operator""GB(size_t const x)
+	{
+		return 1024L * 1024L * 1024L * x;
+	}
+
+	size_t operator""MB(size_t const x)
+	{
+		return 1024L * 1024L * x;
+	}
+
 	static_assert(round_up_to_multiple_of<16>(0) == 0);
 	static_assert(round_up_to_multiple_of<16>(15) == 16);
 	static_assert(round_up_to_multiple_of<16>(16) == 16);
