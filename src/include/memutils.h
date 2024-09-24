@@ -1,13 +1,39 @@
 #pragma once
 
+#include <span>
+
 namespace ggp
 {
+	template <typename T>
+	inline constexpr bool is_inbounds(std::span<uint8_t> mem, T* ptr)
+	{
+		return (reinterpret_cast<u8*>(ptr + 1) > mem.data() + mem.size()) || (ptr < mem.size());
+	}
+
+	inline constexpr bool is_aligned(void* ptr, size_t align)
+	{
+		return (uintptr_t)ptr % align == 0;
+	}
+
+	template <typename T>
+	inline constexpr bool is_aligned_to_type(T* ptr)
+	{
+		return (uintptr_t)ptr % (alignof(T)) == 0;
+	}
+
+	// version of round_up_to_multiple_of which is done at runtime
+	inline constexpr size_t rround_up_to_multiple_of(size_t size, size_t multiple)
+	{
+		assert(size != 0);
+		assert(multiple != 0);
+		return (((size - 1) / multiple) + 1) * multiple;
+	}
+
 	template <size_t align>
 	inline constexpr size_t round_up_to_multiple_of(size_t size)
 	{
 		static_assert(align != 0, "Cannot align to multiple of zero.");
-		if (size == 0) [[unlikely]]
-			return 0;
+		if (size == 0) [[unlikely]] return 0;
 		return (((size - 1) / align) + 1) * align;
 	}
 
