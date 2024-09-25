@@ -85,13 +85,13 @@ ggp::BlockAllocator::~BlockAllocator() noexcept
 	mm::memory_unmap(m_reservedMemory.data(), m_reservedMemory.size_bytes());
 }
 
-std::span<u8> ggp::BlockAllocator::alloc() noexcept
+std::span<u8> ggp::BlockAllocator::Alloc() noexcept
 {
 	if (m_blocksFree == 0)
-		if (!growCapacity())
+		if (!GrowCapacity())
 			return {};
 
-	EmptyBlock* const lastFree = getBlockAt(m_lastFree);
+	EmptyBlock* const lastFree = GetBlockAt(m_lastFree);
 
 	--m_blocksFree;
 	m_lastFree = lastFree->nextEmpty;
@@ -99,7 +99,7 @@ std::span<u8> ggp::BlockAllocator::alloc() noexcept
 	return { (u8*)lastFree, m_blockSize };
 }
 
-bool ggp::BlockAllocator::growCapacity() noexcept
+bool ggp::BlockAllocator::GrowCapacity() noexcept
 {
 	if (m_memory.size() == m_reservedMemory.size())
 		return false;
@@ -126,13 +126,13 @@ bool ggp::BlockAllocator::growCapacity() noexcept
 
 	for (size_t i = oldNumBlocks; i < newNumBlocks; ++i)
 	{
-		getBlockAt(i)->nextEmpty = i + 1;
+		GetBlockAt(i)->nextEmpty = i + 1;
 	}
 
 	// we will start allocating into the newly allocated row of blocks, not
 	// great for fragmentation but easy
 	gassert(newNumBlocks > 0);
-	getBlockAt(newNumBlocks - 1)->nextEmpty = m_lastFree;
+	GetBlockAt(newNumBlocks - 1)->nextEmpty = m_lastFree;
 	m_lastFree = oldNumBlocks;
 
 	m_blocksFree += newNumBlocks - oldNumBlocks;
@@ -140,7 +140,7 @@ bool ggp::BlockAllocator::growCapacity() noexcept
 	return true;
 }
 
-auto ggp::BlockAllocator::getBlockAt(size_t i) const noexcept -> EmptyBlock* 
+auto ggp::BlockAllocator::GetBlockAt(size_t i) const noexcept -> EmptyBlock* 
 {
 	EmptyBlock* const out = (EmptyBlock*)(m_memory.data() + (m_blockSize * i));
 	abort_if(!is_aligned_to_type(out), "blocksize is bad, not aligned to EmptyBlock type");
@@ -148,7 +148,7 @@ auto ggp::BlockAllocator::getBlockAt(size_t i) const noexcept -> EmptyBlock*
 	return out;
 }
 
-void ggp::BlockAllocator::free(std::span<u8> mem) noexcept
+void ggp::BlockAllocator::Free(std::span<u8> mem) noexcept
 {
 	{
 		const bool wrong_size = mem.size() != m_blockSize;
@@ -164,7 +164,7 @@ void ggp::BlockAllocator::free(std::span<u8> mem) noexcept
 	gassert(diff % m_blockSize == 0);
 	const size_t index = diff / m_blockSize;
 
-	getBlockAt(index)->nextEmpty = m_lastFree;
+	GetBlockAt(index)->nextEmpty = m_lastFree;
 	m_lastFree = index;
 	++m_blocksFree;
 }
