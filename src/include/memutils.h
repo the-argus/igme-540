@@ -1,20 +1,40 @@
 #pragma once
 
 #include <span>
+#include "errors.h"
 
 namespace ggp
 {
+	/// <summary>
+	/// Check if a given span of things entirely contains another span of the same thing.
+	/// It is inclusive, so if the spans are the same it will return true.
+	/// </summary>
 	template <typename T>
-	inline constexpr bool is_inbounds(std::span<uint8_t> mem, T* ptr)
+	inline constexpr bool memcontains(std::span<T> outer, std::span<T> inner)
 	{
-		return (reinterpret_cast<u8*>(ptr + 1) > mem.data() + mem.size()) || (ptr < mem.size());
+		return inner.data() >= outer.data() && outer.data() + outer.size() >= inner.data() + inner.size();
 	}
 
+	/// <summary>
+	/// Check if an object is contained within a contiguous area of memory.
+	/// </summary>
+	template <typename T>
+	inline constexpr bool is_inbounds_bytes(std::span<uint8_t> mem, T* ptr)
+	{
+		return (reinterpret_cast<uint8_t*>(ptr + 1) <= mem.data() + mem.size()) && reinterpret_cast<uint8_t*>(ptr) >= mem.data();
+	}
+
+	/// <summary>
+	/// Check if a memory address is divisible by a number.
+	/// </summary>
 	inline constexpr bool is_aligned(void* ptr, size_t align)
 	{
 		return (uintptr_t)ptr % align == 0;
 	}
 
+	/// <summary>
+	/// Check if a pointer to an object is correctly aligned for the required alignment of the type given by the pointer.
+	/// </summary>
 	template <typename T>
 	inline constexpr bool is_aligned_to_type(T* ptr)
 	{
@@ -24,8 +44,8 @@ namespace ggp
 	// version of round_up_to_multiple_of which is done at runtime
 	inline constexpr size_t rround_up_to_multiple_of(size_t size, size_t multiple)
 	{
-		assert(size != 0);
-		assert(multiple != 0);
+		gassert(size != 0);
+		gassert(multiple != 0);
 		return (((size - 1) / multiple) + 1) * multiple;
 	}
 
@@ -43,12 +63,12 @@ namespace ggp
 		static constexpr size_t value = round_up_to_multiple_of<align>(sizeof T);
 	};
 
-	size_t operator""GB(size_t const x)
+	inline size_t operator""_GB(size_t const x)
 	{
 		return 1024L * 1024L * 1024L * x;
 	}
 
-	size_t operator""MB(size_t const x)
+	inline size_t operator""_MB(size_t const x)
 	{
 		return 1024L * 1024L * x;
 	}

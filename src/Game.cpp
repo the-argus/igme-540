@@ -5,10 +5,13 @@
 #include "PathHelpers.h"
 #include "Window.h"
 #include "memutils.h"
+#include "errors.h"
 
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
+
+#include "BlockAllocator.h"
 
 #include <DirectXMath.h>
 
@@ -351,7 +354,7 @@ void Game::BuildUI() noexcept
 			// NOTE: using snprintf here instead of std::string or BulletTextV because I was having issues with each and was tired
 			// TODO: make this use BulletTextV and TreeNodeExV
 			int bytes_printed = std::snprintf(buf.data(), buf.size(), "mesh %zu", i);
-			assert(bytes_printed < buf.size());
+			gassert(bytes_printed < buf.size());
 
 			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 			if (ImGui::TreeNodeEx(buf.data(), flag))
@@ -360,15 +363,15 @@ void Game::BuildUI() noexcept
 				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", mesh.GetVertexCount());
-				assert(bytes_printed < buf.size());
+				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", mesh.GetIndexCount());
-				assert(bytes_printed < buf.size());
+				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", mesh.GetIndexCount() / 3);
-				assert(bytes_printed < buf.size());
+				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
 				// close this treenode and move to next one

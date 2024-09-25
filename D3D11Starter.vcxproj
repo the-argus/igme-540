@@ -190,6 +190,7 @@
     <ClInclude Include="src/include/Window.h" />
     <ClInclude Include="src\include\BlockAllocator.h" />
     <ClInclude Include="src\include\ConstantBuffers.h" />
+    <ClInclude Include="src\include\errors.h" />
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
     <ClInclude Include="src\include\Mesh.h" />

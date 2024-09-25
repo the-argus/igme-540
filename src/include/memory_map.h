@@ -8,8 +8,8 @@ author: Ian McFarlane
 #include <stdint.h>
 
 #if defined(_WIN32)
-#include <errhandlingapi.h>
 #include <windows.h>
+#include <errhandlingapi.h>
 // LPVOID WINAPI VirtualAlloc(LPVOID lpaddress, SIZE_T size, DWORD
 // flAllocationType, DWORD flProtect);
 #elif defined(__linux__) || defined(__APPLE__)
@@ -73,7 +73,7 @@ namespace mm {
 		size_t size = num_pages * result;
 #if defined(_WIN32)
 		map_result_t res = map_result_t{
-			.data = VirtualAlloc(address_hint, size, MEM_RESERVE, 0),
+			.data = VirtualAlloc(address_hint, size, MEM_RESERVE, PAGE_NOACCESS),
 			.bytes = size,
 			.code = 0,
 		};
@@ -114,7 +114,7 @@ namespace mm {
 		size_t size = num_pages * result;
 #if defined(_WIN32)
 		int64_t err = 0;
-		if (!VirtualAlloc(address, size, MEM_RESERVE | MEM_COMMIT, 0)) {
+		if (!VirtualAlloc(address, size, MEM_COMMIT, PAGE_READWRITE)) {
 			err = GetLastError();
 			assert(err != 0);
 		}
@@ -136,7 +136,7 @@ namespace mm {
 	{
 #if defined(_WIN32)
 		int64_t err = 0;
-		if (!VirtualFree(address, size, MEM_DECOMMIT | MEM_RELEASE)) {
+		if (!VirtualFree(address, 0, MEM_RELEASE)) {
 			err = GetLastError();
 		}
 		return err;
