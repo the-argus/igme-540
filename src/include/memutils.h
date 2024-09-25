@@ -5,6 +5,18 @@
 
 namespace ggp
 {
+	// get alignment exponent from "alignof T", ie if T is 8 byte aligned this returns 3
+	inline constexpr uint8_t alignment_exponent(size_t alignment)
+	{
+		constexpr auto bits = sizeof(size_t) * 8;
+		for (size_t i = 0; i < bits; ++i) {
+			if (((size_t(1) << i) & alignment) == alignment) {
+				return i;
+			}
+		}
+		return bits;
+	}
+
 	/// <summary>
 	/// Check if a given span of things entirely contains another span of the same thing.
 	/// It is inclusive, so if the spans are the same it will return true.

@@ -7,9 +7,12 @@ ggp::BlockAllocator::BlockAllocator(const Options& options) noexcept
 {
 	gassert(options.maxBytes > 0, "Block allocator max capacity may not be zero");
 	gassert(options.initialBytes <= options.maxBytes, "Block allocator initial bytes greater than maximum possible bytes.");
+	static_assert(1 << 3 == alignof(EmptyBlock), "block allocator enforces alignment for empty blocks by requiring that the exponent is at least 3, but that doesnt match empty block alignment.");
+	gassert(options.minimumAlignmentExponent >= 3 && options.minimumAlignmentExponent <= 7, "Alignment requested from block allocator is too small or too large");
+	m_minAlignmentExponent = options.minimumAlignmentExponent;
 	m_pageSize = mm::get_page_size();
 	m_blockSize = max(options.blockSize, sizeof EmptyBlock); // NOTE: macro preventing me from using std::max? :(
-	m_blockSize = round_up_to_multiple_of<alignof(EmptyBlock)>(m_blockSize);
+	m_blockSize = rround_up_to_multiple_of(m_blockSize, 1UL << options.minimumAlignmentExponent);
 	const size_t pagesReserved = rround_up_to_multiple_of(options.maxBytes, m_pageSize) / m_pageSize;
 	const size_t bytesCommitted = options.initialBytes == 0 ? 0 : rround_up_to_multiple_of(options.initialBytes, m_pageSize);
 	const size_t pagesCommitted = bytesCommitted / m_pageSize;
@@ -64,7 +67,8 @@ ggp::BlockAllocator::BlockAllocator(BlockAllocator&& other) noexcept
 	m_pageSize(other.m_pageSize),
 	m_blocksFree(other.m_blocksFree),
 	m_blockSize(other.m_blockSize),
-	m_lastFree(other.m_lastFree)
+	m_lastFree(other.m_lastFree),
+	m_minAlignmentExponent(other.m_minAlignmentExponent)
 {
 }
 
@@ -77,6 +81,7 @@ auto ggp::BlockAllocator::operator=(BlockAllocator&& other) noexcept -> BlockAll
 	m_blocksFree = other.m_blocksFree;
 	m_blockSize = other.m_blockSize;
 	m_lastFree = other.m_lastFree;
+	m_minAlignmentExponent = other.m_minAlignmentExponent;
 	return *this;
 }
 
@@ -161,7 +166,6 @@ void ggp::BlockAllocator::Free(std::span<u8> mem) noexcept
 	}
 
 	const ptrdiff_t diff = mem.data() - m_memory.data();
-	gassert(diff % m_blockSize == 0);
 	const size_t index = diff / m_blockSize;
 
 	GetBlockAt(index)->nextEmpty = m_lastFree;

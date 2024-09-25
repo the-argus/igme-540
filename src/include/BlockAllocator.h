@@ -13,6 +13,10 @@ namespace ggp
 			size_t maxBytes;
 			size_t initialBytes;
 			size_t blockSize;
+			// blocksize will be rounded up to a multiple of 2^minimumAlignmentExponent.
+			// 3 = 8 bytes, 4 = 16 bytes, 5 = 32 bytes, 6 = 64 bytes
+			// the number must be at least 3 and can be at most 7
+			u8 minimumAlignmentExponent = 3;
 		};
 
 		BlockAllocator(const BlockAllocator&) = delete;
@@ -28,6 +32,14 @@ namespace ggp
 		std::span<u8> Alloc() noexcept;
 		void Free(std::span<u8> mem) noexcept;
 
+		template <typename T>
+		inline u32 GetIndexFromPointer(T* item) const noexcept
+		{
+		}
+
+		inline void* GetPointerFromIndex(u32 idx) const noexcept
+		{}
+
 		/// <summary>
 		/// Construct an object of type T within a block in this allocator.
 		/// Similar to "new" et all. Calls T's constructor.
@@ -38,13 +50,14 @@ namespace ggp
 		inline T* Create(Args&&... args) noexcept
 		{
 			static_assert(std::is_trivially_destructible_v<T>, "BlockAllocator::create will call constructor of a type which it cannot destruct");
-			if (sizeof(T) > m_blockSize || alignof(T) > m_blockSize) [[unlikely]]
+			if (sizeof(T) > m_blockSize || alignof(T) > (1 << m_minAlignmentExponent)) [[unlikely]]
 			{
 				gassert(false, "Attempt to create type with block allocator, but its too big or too aligned");
 				return nullptr;
 			}
 			
 			T* const out = reinterpret_cast<T*>(Alloc().data());
+			gassert(is_aligned_to_type(out), "implementation of block allocator is broken and produced misaligned ptr");
 			// if no arguments were provided and T is trivially constructible, no need to do anything
 			// and this function is a glorified assert
 			if constexpr (sizeof...(Args) > 0 || !std::is_trivially_constructible_v<T>)
@@ -59,6 +72,7 @@ namespace ggp
 		template <typename T>
 		inline void Destroy(T* object) noexcept
 		{
+			static_assert(std::is_trivially_destructible_v<T>, "Cannot destroy object which has destructor trollface");
 			Free({ (u8*)object, m_blockSize } );
 		}
 
@@ -79,5 +93,6 @@ namespace ggp
 		size_t m_blockSize;
 		size_t m_blocksFree;
 		size_t m_lastFree;
+		u8 m_minAlignmentExponent;
 	};
 }

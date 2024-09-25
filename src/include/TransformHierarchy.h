@@ -2,77 +2,98 @@
 
 #include <DirectXMath.h>
 
-#include "BlockAllocator.h"
 #include <vector>
-#include <optional>
+
+#include "BlockAllocator.h"
+#include "TransformHandle.h"
 
 namespace ggp
 {
 	class TransformHierarchy
 	{
 	public:
-		class TransformHandle
-		{
-		public:
-			// tree traversal
-			size_t GetNumChildren() const noexcept;
-			TransformHandle GetChild(size_t idx) const noexcept;
-			std::optional<TransformHandle> GetParent() const noexcept;
+		TransformHierarchy() noexcept;
 
-			// tree modification
-			TransformHandle AddChild() const noexcept;
-			void RemoveChildAt(size_t idx) const noexcept;
+		// initialize a new transform in the system and return a handle to it
+		TransformHandle InsertTransform() noexcept;
 
-			// getters- always okay to call these because they are entirely local to this
-			// transform and have nothing to do with the heirarchy
-			DirectX::XMFLOAT3A GetLocalPosition() const noexcept;
-			DirectX::XMFLOAT3A GetLocalEulerAngles() const noexcept;
-			DirectX::XMFLOAT3A GetLocalScale() const noexcept;
-
-			// getters- these call into the transform hierarchy and require updates
-			DirectX::XMFLOAT4X4 GetMatrix() const noexcept;
-			DirectX::XMFLOAT3A GetPosition() const noexcept;
-			DirectX::XMFLOAT3A GetEulerAngles() const noexcept;
-			DirectX::XMFLOAT3A GetScale() const noexcept;
-
-			// setters- cause updates in the transform hierarchy
-			void SetPosition(const DirectX::XMFLOAT3A& pos) const noexcept;
-			void SetEulerAngles(const DirectX::XMFLOAT3A& angles) const noexcept;
-			void SetScale(const DirectX::XMFLOAT3A& scale) const noexcept;
-			void SetLocalPosition(const DirectX::XMFLOAT3A& pos) const noexcept;
-			void SetLocalEulerAngles(const DirectX::XMFLOAT3A& angles) const noexcept;
-			void SetLocalScale(const DirectX::XMFLOAT3A& scale) const noexcept;
-
-		private:
-			u32 id;
-		};
-
-		class InternalTransform
-		{
-		public:
-			InternalTransform() noexcept;
-		private:
-			DirectX::XMFLOAT4A localPosition; // fourth element of position is dirty flag
-			DirectX::XMFLOAT3A localRotation;
-			DirectX::XMFLOAT4A quaternion;
-			DirectX::XMFLOAT3A localScale;
-
-			inline bool IsDirty() const noexcept { return localPosition.w > 0; }
-			inline void SetDirty(bool value) noexcept { localPosition.w = value ? -1 : 1; }
-		};
-
-		TransformHandle InsertRootTransform() noexcept;
+		// destroy a given transform, subtracting from the number of children its parent had.
+		// if the destroyed transform had children, it becomes one of the root transforms.
+		void DestroyTransform(TransformHandle handle) noexcept;
 
 	private:
+		enum class TransformStorageLocationFlags : u8
+		{
+			NoChildren = 0b0000,
+			FewChildren = 0b0001,
+			MediumChildren = 0b0010,
+			ManyChildren = 0b0100,
+		};
+
+		struct InternalTransform
+		{
+			DirectX::XMFLOAT3 localPosition;
+			DirectX::XMFLOAT3 localRotation;
+			DirectX::XMFLOAT3 localScale;
+		};
+
+		struct InternalTreeData
+		{
+			u32 matrixHandle;
+			u32 parentHandle;
+			u32 childrenHandle;
+			bool isDirty;
+			TransformStorageLocationFlags parentLocation;
+			TransformStorageLocationFlags childLocation;
+		};
+
+		struct InternalTransformMatrices
+		{
+			DirectX::XMFLOAT4X4A local;
+			DirectX::XMFLOAT4X4A global;
+		};
+
+		// a row of transform data is a set of three big arrays (block allocators).
+		// each element of these arrays are also arrays. each sub array is the same
+		// size for each block allocator in the same row.
+		struct TransformRow
+		{
+			explicit TransformRow(size_t size) noexcept;
+			BlockAllocator treeDatas; // InternalTreeData * size
+			BlockAllocator transforms; // InternalTransform * size
+			BlockAllocator matrices; // InternalTransformMatrices * size
+		};
+
+		// if a transform has a ton of children, we don't bother with block allocator business, just put it on the head w/ vectors
+		struct BigTransformData
+		{
+			std::vector<InternalTreeData> treeDatas;
+			std::vector<InternalTransform> transforms;
+			std::vector<InternalTransformMatrices> matrices;
+		};
+
+		static_assert(sizeof InternalTransform == 36);
+		static_assert(sizeof InternalTreeData == 16);
+
+	private:
+		enum class RowType: u8
+		{
+			Small = 0,
+			Medium = 1,
+			Large,
+		};
+
+		u32 InsertInRow(RowType idx) noexcept;
+
 		// transforms with no parent
-		std::vector<InternalTransform*> m_rootTransforms;
-		// matrices, calculated/updated each frame
-		BlockAllocator m_matrixCache;
-		// transforms with no children
-		BlockAllocator m_transformAllocator;
-		// transforms with 1-4 children
-		BlockAllocator m_transformFamilyAllocator;
-		// transforms with a ton of siblings need to be heap allocated and so have to be freed on destruction
-		std::vector<InternalTransform*> m_bigTransforms;
+		std::vector<u32> m_rootTransformHandles;
+		std::vector<TransformStorageLocationFlags> m_rootTransformLocations;
+
+		// pool of big transforms, stores BigTransformData
+		BlockAllocator m_bigTransformPool;
+
+		// store pools of groups of 1 and groups of 4 transforms
+		static constexpr u64 siblingAmounts[] = {1, 4};
+		TransformRow m_rows[2];
 	};
 }
