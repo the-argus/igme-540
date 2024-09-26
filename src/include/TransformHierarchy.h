@@ -11,6 +11,17 @@
 
 namespace ggp
 {
+	// adapted from https://stackoverflow.com/questions/60350349/directx-get-pitch-yaw-roll-from-xmmatrix
+	inline DirectX::XMVECTOR ExtractEulersFromMatrix(const DirectX::XMFLOAT4X4A* matrix)
+	{
+		// TODO: idk if this works when the matrix is a combined SRT
+		return XMVectorSet(
+			float(::asin(-matrix->_23)),
+			float(::atan2(matrix->_13, matrix->_33)),
+			float(::atan2(matrix->_21, matrix->_22)),
+			0.f);
+	}
+
 	class TransformHierarchy
 	{
 	public:
@@ -60,17 +71,22 @@ namespace ggp
 		/// <returns>A pointer to the calculated matrix. Using this pointer after other operations have been performed on the hierarchy is undefined.</returns>
 		const DirectX::XMFLOAT4X4* GetMatrix(Handle) const noexcept;
 
+		inline void LoadMatrixDecomposed(
+			Handle,
+			DirectX::XMVECTOR* outPos,
+			DirectX::XMVECTOR* outQuat,
+			DirectX::XMVECTOR* outScale) const noexcept;
 		inline DirectX::XMVECTOR LoadPosition(Handle) const noexcept;
 		inline DirectX::XMVECTOR LoadEulerAngles(Handle) const noexcept;
 		inline DirectX::XMVECTOR LoadScale(Handle) const noexcept;
 
 		// setters- cause updates in the transform hierarchy
-		inline void TH_VECTORCALL StorePosition(Handle, DirectX::XMVECTOR pos) noexcept;
-		inline void TH_VECTORCALL StoreEulerAngles(Handle, DirectX::XMVECTOR angles) noexcept;
-		inline void TH_VECTORCALL StoreScale(Handle, DirectX::XMVECTOR scale) noexcept;
-		inline void TH_VECTORCALL StoreLocalPosition(Handle, DirectX::XMVECTOR pos) noexcept;
-		inline void TH_VECTORCALL StoreLocalEulerAngles(Handle, DirectX::XMVECTOR angles) noexcept;
-		inline void TH_VECTORCALL StoreLocalScale(Handle, DirectX::XMVECTOR scale) noexcept;
+		inline void TH_VECTORCALL StorePosition(Handle, DirectX::FXMVECTOR pos) noexcept;
+		inline void TH_VECTORCALL StoreEulerAngles(Handle, DirectX::FXMVECTOR angles) noexcept;
+		inline void TH_VECTORCALL StoreScale(Handle, DirectX::FXMVECTOR scale) noexcept;
+		inline void TH_VECTORCALL StoreLocalPosition(Handle, DirectX::FXMVECTOR pos) noexcept;
+		inline void TH_VECTORCALL StoreLocalEulerAngles(Handle, DirectX::FXMVECTOR angles) noexcept;
+		inline void TH_VECTORCALL StoreLocalScale(Handle, DirectX::FXMVECTOR scale) noexcept;
 
 	private:
 		struct InternalTransform
@@ -78,11 +94,9 @@ namespace ggp
 			DirectX::XMFLOAT3A localPosition = {};
 			DirectX::XMFLOAT3A localRotation = {};
 			DirectX::XMFLOAT3A localScale = {1, 1, 1};
-			DirectX::XMFLOAT4X4A local = {};
-			DirectX::XMFLOAT4X4A global = {};
+			DirectX::XMFLOAT4X4A matrix = {};
 			i32 parentHandle = -1;
 			i32 nextSiblingHandle = -1;
-			i32 prevSiblingHandle = -1;
 			i32 childHandle = -1;
 			bool isDirty = false;
 		};
@@ -94,6 +108,26 @@ namespace ggp
 
 		inline constexpr bool IsNull(Handle h) const noexcept { return h._inner < 0; }
 
+		// take a dirty transform and move up until finding the earliest clean ancestor, then propagate all changes down, cleaning
+		// any passed children on the way. stops when it cleans the target transform
+		void Clean(u32 transform) const noexcept;
+
+		// recursively mark a transform and all children as dirty. in theory this is super
+		// innefficient bc linked list + bools in structs, every node read is a cache line evicted.
+		// TODO: benchmark stuff, probably
+		void MarkDirty(u32 transform) const noexcept;
+
+		struct DirtyStackFrame
+		{
+			i32 transform = -1;
+			u8 triedChild = false;
+			u8 triedSibling = false;
+		};
+
+		// when calling Clean, we push handles to this during it and then clear it when Clean is done
+		mutable std::vector<u32> m_cleaningArena;
+		// for recursing into the tree without using call stack recursion, we still need a stack of some kind
+		mutable std::vector<DirtyStackFrame> m_dirtyStack;
 		std::vector<u32> m_rootTransforms;
 		BlockAllocator m_transformAllocator;
 	};
@@ -120,21 +154,99 @@ namespace ggp
 		return DirectX::XMLoadFloat3(&GetPtr(h)->localScale);
 	}
 
-	inline void TH_VECTORCALL TransformHierarchy::StoreLocalPosition(Handle h, DirectX::XMVECTOR pos) noexcept
+	inline void TH_VECTORCALL TransformHierarchy::StoreLocalPosition(Handle h, DirectX::FXMVECTOR pos) noexcept
 	{
 		gassert(!IsNull(h), "attempt to change the local position of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localPosition, pos);
 	}
 
-	inline void TH_VECTORCALL TransformHierarchy::StoreLocalEulerAngles(Handle h, DirectX::XMVECTOR angles) noexcept
+	inline void TH_VECTORCALL TransformHierarchy::StoreLocalEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
 	{
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localRotation, angles);
 	}
 
-	inline void TH_VECTORCALL TransformHierarchy::StoreLocalScale(Handle h, DirectX::XMVECTOR scale) noexcept
+	inline void TH_VECTORCALL TransformHierarchy::StoreLocalScale(Handle h, DirectX::FXMVECTOR scale) noexcept
 	{
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localScale, scale);
+	}
+
+	inline void TransformHierarchy::LoadMatrixDecomposed(
+		Handle h,
+		DirectX::XMVECTOR* outPos,
+		DirectX::XMVECTOR* outQuat,
+		DirectX::XMVECTOR* outScale) const noexcept
+	{
+		gassert(!IsNull(h), "attempt to load the matrix of null transform");
+		auto* trans = GetPtr(h);
+
+		if (trans->isDirty)
+			Clean(h._inner);
+
+		DirectX::XMMATRIX mat = XMLoadFloat4x4(&trans->matrix);
+		const bool success = XMMatrixDecompose(outScale, outQuat, outPos, mat);
+		// this should never fail, hopefully the transform wrapper prevents matrix from ever becoming invalid or something
+		assert(success);
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadPosition(Handle h) const noexcept
+	{
+		DirectX::XMVECTOR pos;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &pos, &quat, &scale);
+		return pos;
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadEulerAngles(Handle h) const noexcept
+	{
+		gassert(!IsNull(h), "Attempt to load euler angles from null transform");
+		auto* trans = GetPtr(h);
+		if (trans->isDirty)
+			Clean(h._inner);
+		return ExtractEulersFromMatrix(&trans->matrix);
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadScale(Handle h) const noexcept
+	{
+		DirectX::XMVECTOR pos;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &pos, &quat, &scale);
+		return scale;
+	}
+
+	inline void TH_VECTORCALL TransformHierarchy::StorePosition(Handle h, DirectX::FXMVECTOR pos) noexcept
+	{
+		gabort(); // unimplemented
+		DirectX::XMVECTOR outPos;
+		DirectX::XMVECTOR outQuat;
+		DirectX::XMVECTOR outScale;
+		LoadMatrixDecomposed(h, &outPos, &outQuat, &outScale);
+
+		// TODO: get difference between current and target position, convert to local space
+	}
+
+	inline void TH_VECTORCALL TransformHierarchy::StoreEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
+	{
+		gabort(); // unimplemented
+		DirectX::XMVECTOR outPos;
+		DirectX::XMVECTOR outQuat;
+		DirectX::XMVECTOR outScale;
+		LoadMatrixDecomposed(h, &outPos, &outQuat, &outScale);
+		// TODO: convert input to quat, just quaternion multiply them
+	}
+
+	inline void TH_VECTORCALL TransformHierarchy::StoreScale(Handle h, DirectX::FXMVECTOR scale) noexcept
+	{
+		// modifying global scale should modify local scale, but just do it in global space.
+		DirectX::XMVECTOR delta; // innaccurate name
+		DirectX::XMVECTOR localScale; // this name is innaccurate at first, actually quat
+		DirectX::XMVECTOR globalScale; // what we care about
+		LoadMatrixDecomposed(h, &delta, &localScale, &globalScale);
+		localScale = LoadLocalScale(h); // okay now its accurate
+		delta = XMVectorSubtract(scale, globalScale); // difference between the target scale and our scale
+		StoreLocalScale(h, XMVectorAdd(localScale, delta)); // just add the needed difference to local
 	}
 }
