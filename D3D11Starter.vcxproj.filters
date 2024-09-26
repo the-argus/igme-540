@@ -134,6 +134,9 @@
     <ClInclude Include="src\include\errors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\include\TransformHandle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders/PixelShader.hlsl">

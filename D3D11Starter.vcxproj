@@ -194,6 +194,7 @@
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
     <ClInclude Include="src\include\Mesh.h" />
+    <ClInclude Include="src\include\TransformHandle.h" />
     <ClInclude Include="src\include\TransformHierarchy.h" />
   </ItemGroup>
   <ItemGroup>
