@@ -9,13 +9,13 @@ namespace ggp
 	{
 	public:
 		// tree traversal
-		size_t GetNumChildren() const noexcept;
-		TransformHandle GetChild(size_t idx) const noexcept;
+		std::optional<TransformHandle> GetFirstChild() const noexcept;
+		std::optional<TransformHandle> GetNextSibling() const noexcept;
 		std::optional<TransformHandle> GetParent() const noexcept;
 
 		// tree modification
 		TransformHandle AddChild() const noexcept;
-		void RemoveChildAt(size_t idx) const noexcept;
+		void Destroy() const noexcept; // NOTE: after this, this transform handle is invalid
 
 		// getters- always okay to call these because they are entirely local to this
 		// transform and have nothing to do with the heirarchy
@@ -40,9 +40,9 @@ namespace ggp
 		friend class TransformHierarchy;
 
 	private:
-		explicit inline TransformHandle(u32 raw, u8 extra) noexcept : id(raw), extra(extra) {};
+		explicit inline TransformHandle(u32 raw, TransformHierarchy* hierarchy) noexcept : id(raw), hierarchy(hierarchy) {};
 
+		TransformHierarchy* hierarchy;
 		u32 id;
-		u8 extra;
 	};
 }

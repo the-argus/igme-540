@@ -2,91 +2,46 @@
 #include "TransformHierarchy.h"
 #include "memutils.h"
 
-
-// a transform row consists of three allocators which all allocate and release at the same time
-explicit ggp::TransformHierarchy::TransformRow::TransformRow(size_t size) noexcept
-	: matrices(BlockAllocator::Options{
-	.maxBytes = 100_MB,
+ggp::TransformHierarchy::TransformHierarchy() noexcept :m_transformAllocator(BlockAllocator::Options{
+	.maxBytes = 10_MB,
 		.initialBytes = 1_MB,
-		.blockSize = sizeof(InternalTransformMatrices) * size,
-		.minimumAlignmentExponent = alignment_exponent(alignof(InternalTransformMatrices)),
-}),
-transforms(BlockAllocator::Options{
-	.maxBytes = 100_MB,
-		.initialBytes = 1_MB,
-		.blockSize = sizeof(InternalTransform) * size,
-		.minimumAlignmentExponent = alignment_exponent(alignof(InternalTransform)),
-}),
-treeDatas(BlockAllocator::Options{
-	.maxBytes = 100_MB,
-		.initialBytes = 1_MB,
-		.blockSize = sizeof(InternalTreeData) * size,
-		.minimumAlignmentExponent = alignment_exponent(alignof(InternalTreeData)),
+		.blockSize = sizeof(InternalTransform),
+		.minimumAlignmentExponent = alignment_exponent(alignof(InternalTransform))
 })
 {
 }
 
-// transform heirarchy has a pool for big transforms, and two sets of allocators for transforms
-// with no siblings and transforms with 1-3 siblings.
-ggp::TransformHierarchy::TransformHierarchy() noexcept :
-	m_bigTransformPool(BlockAllocator::Options{
-	.maxBytes = 100_MB,
-		.initialBytes = 0_MB,
-		.blockSize = sizeof(BigTransformData),
-		.minimumAlignmentExponent = alignment_exponent(alignof(BigTransformData)),
-}),
-m_rows{ TransformRow(siblingAmounts[0]), TransformRow(siblingAmounts[1]) }
-{
-}
-
-u32 ggp::TransformHierarchy::InsertInRow(RowType rowType) noexcept
-{
-	switch (rowType)
-	{
-	case RowType::Large: {
-		auto* bigData = m_bigTransformPool.Create<BigTransformData>();
-		return m_bigTransformPool.GetIndexFromPointer(bigData);
-	}
-	case RowType::Small:
-	case RowType::Medium: {
-		auto& row = m_rows[u8(rowType)];
-		std::span<u8> matricesMem = row.matrices.Alloc();
-		std::span<u8> transformMem = row.transforms.Alloc();
-		std::span<u8> treeDataMem = row.treeDatas.Alloc();
-
-		u32 handle = row.matrices.GetIndexFromPointer(matricesMem.data());
-		gassert(row.transforms.GetIndexFromPointer(transformMem.data()) == handle);
-		gassert(row.treeDatas.GetIndexFromPointer(treeDataMem.data()) == handle);
-		return handle;
-	}
-	}
-	gabort();
-}
-
 auto ggp::TransformHierarchy::InsertTransform() noexcept -> TransformHandle
 {
-	return TransformHandle(InsertInRow(RowType::Small), u8(RowType::Small));
+	auto* ptr = m_transformAllocator.Create<InternalTransform>();
+	return TransformHandle(m_transformAllocator.GetIndexFromPointer(ptr), this);
 }
 
-// destroy a given transform, subtracting from the number of children its parent had.
-// if the destroyed transform had children, it becomes one of the root transforms.
 void ggp::TransformHierarchy::DestroyTransform(TransformHandle handle) noexcept
 {
-	auto rowType = static_cast<RowType>(handle.extra);
-
-	switch (rowType)
+	auto* trans = (InternalTransform*)m_transformAllocator.GetPointerFromIndex(handle.id);
+	if (trans->parentHandle == -1) // we are in root transforms, need to remove from that so we dont get freed @ the end
 	{
-	case RowType::Large:
-		auto* bigData = (BigTransformData*)m_bigTransformPool.GetPointerFromIndex(handle.id);
-	case RowType::Small:
-	case RowType::Medium:
-		TransformRow& row = m_rows[u8(rowType)];
-		auto* matrices = (InternalTransformMatrices*)row.matrices.GetPointerFromIndex(handle.id);
-		auto* transform = (InternalTransform*)row.transforms.GetPointerFromIndex(handle.id);
-		auto* treeData = (InternalTreeData*)row.treeDatas.GetPointerFromIndex(handle.id);
-
-		row.matrices.Destroy(matrices);
-		row.transforms.Destroy(transform);
-		row.treeDatas.Destroy(treeData);
+		auto rootPosition = std::find(m_rootTransforms.begin(), m_rootTransforms.end(), handle.id);
+		gassert(rootPosition != m_rootTransforms.end());
 	}
+
+	u32 childIter = trans->childHandle;
+	// the first child of any transform should have no previous sibling, ie it should be the first sibling
+	gassert(childIter == -1 || ((InternalTransform*)m_transformAllocator.GetPointerFromIndex(childIter))->prevSiblingHandle == -1);
+
+	// make some orphans
+	while (childIter != -1)
+	{
+		auto* child = (InternalTransform*)m_transformAllocator.GetPointerFromIndex(childIter);
+		child->parentHandle = -1;
+		// move this orphan up to root
+		m_rootTransforms.push_back(childIter);
+		childIter = child->nextSiblingHandle;
+		// orphan no longer has connection to siblings
+		child->nextSiblingHandle = -1;
+		child->prevSiblingHandle = -1;
+	}
+
+	m_transformAllocator.Destroy(trans);
 }
