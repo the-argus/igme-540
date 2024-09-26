@@ -1,20 +1,32 @@
 #pragma once
 #include <DirectXMath.h>
-#include <optional>
+#include <memory>
+#include "TransformHierarchy.h"
 
 namespace ggp
 {
-	class TransformHierarchy;
-	class TransformHandle
+	/// <summary>
+	/// A transform contains a rotation, euler angles, a scale, and a matrix representation.
+	/// It is a wrapper around TransformHierarchy and TransformHierarchy::Handle.
+	/// </summary>
+	class Transform
 	{
 	public:
+		using Handle = TransformHierarchy::Handle;
+
+		static TransformHierarchy* CreateHierarchySingleton() noexcept;
+		static void DestroyHierarchySingleton(TransformHierarchy*) noexcept;
+
+		Transform() = delete;
+		inline constexpr Transform(Handle h) noexcept : handle(h) {}
+
 		// tree traversal
-		std::optional<TransformHandle> GetFirstChild() const noexcept;
-		std::optional<TransformHandle> GetNextSibling() const noexcept;
-		std::optional<TransformHandle> GetParent() const noexcept;
+		std::optional<Handle> GetFirstChild() const noexcept;
+		std::optional<Handle> GetNextSibling() const noexcept;
+		std::optional<Handle> GetParent() const noexcept;
 
 		// tree modification
-		TransformHandle AddChild() const noexcept;
+		Handle AddChild() const noexcept;
 		void Destroy() const noexcept; // NOTE: after this, this transform handle is invalid
 
 		// getters- always okay to call these because they are entirely local to this
@@ -37,12 +49,7 @@ namespace ggp
 		void SetLocalEulerAngles(const DirectX::XMFLOAT3A& angles) const noexcept;
 		void SetLocalScale(const DirectX::XMFLOAT3A& scale) const noexcept;
 
-		friend class TransformHierarchy;
-
 	private:
-		explicit inline TransformHandle(u32 raw, TransformHierarchy* hierarchy) noexcept : id(raw), hierarchy(hierarchy) {};
-
-		TransformHierarchy* hierarchy;
-		u32 id;
+		TransformHierarchy::Handle handle;
 	};
 }
