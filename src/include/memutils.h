@@ -9,7 +9,7 @@ namespace ggp
 	inline constexpr uint8_t alignment_exponent(size_t alignment)
 	{
 		constexpr auto bits = sizeof(size_t) * 8;
-		for (size_t i = 0; i < bits; ++i) {
+		for (uint8_t i = 0; i < bits; ++i) {
 			if (((size_t(1) << i) & alignment) == alignment) {
 				return i;
 			}

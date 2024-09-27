@@ -69,6 +69,12 @@
     <ClCompile Include="src\BlockAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Transform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Entity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/include/Window.h">
@@ -134,7 +140,10 @@
     <ClInclude Include="src\include\errors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\include\TransformHandle.h">
+    <ClInclude Include="src\include\Transform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Entity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

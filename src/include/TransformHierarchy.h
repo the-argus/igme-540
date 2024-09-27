@@ -6,22 +6,12 @@
 #include <optional>
 
 #include "BlockAllocator.h"
+#include "ggp_math.h"
 
 #define TH_VECTORCALL __vectorcall
 
 namespace ggp
 {
-	// adapted from https://stackoverflow.com/questions/60350349/directx-get-pitch-yaw-roll-from-xmmatrix
-	inline DirectX::XMVECTOR ExtractEulersFromMatrix(const DirectX::XMFLOAT4X4A* matrix)
-	{
-		// TODO: idk if this works when the matrix is a combined SRT
-		return XMVectorSet(
-			float(::asin(-matrix->_23)),
-			float(::atan2(matrix->_13, matrix->_33)),
-			float(::atan2(matrix->_21, matrix->_22)),
-			0.f);
-	}
-
 	class TransformHierarchy
 	{
 	public:
@@ -59,6 +49,14 @@ namespace ggp
 		inline DirectX::XMVECTOR LoadLocalPosition(Handle) const noexcept;
 		inline DirectX::XMVECTOR LoadLocalEulerAngles(Handle) const noexcept;
 		inline DirectX::XMVECTOR LoadLocalScale(Handle) const noexcept;
+		// getters from assignment 5, although "Local" has been added to function names
+		DirectX::XMFLOAT3 GetLocalPosition(Handle) const;
+		DirectX::XMFLOAT3 GetLocalRotation(Handle) const;
+		DirectX::XMFLOAT3 GetLocalScale(Handle) const;
+		// setters from assignment 5, "Local" added
+		void SetLocalPosition(Handle, DirectX::XMFLOAT3 position);
+		void SetLocalRotation(Handle, DirectX::XMFLOAT3 rotation);
+		void SetLocalScale(Handle, DirectX::XMFLOAT3 scale);
 
 		// getters- these call into the transform hierarchy and require updates
 
@@ -69,7 +67,8 @@ namespace ggp
 		/// </summary>
 		/// <param name="">The handle pointing to the transform to load.</param>
 		/// <returns>A pointer to the calculated matrix. Using this pointer after other operations have been performed on the hierarchy is undefined.</returns>
-		const DirectX::XMFLOAT4X4* GetMatrix(Handle) const noexcept;
+		const DirectX::XMFLOAT4X4* GetWorldMatrixPtr(Handle) const noexcept;
+		const DirectX::XMFLOAT4X4* GetWorldInverseTransposeMatrixPtr(Handle) const noexcept;
 
 		inline void LoadMatrixDecomposed(
 			Handle,
@@ -91,14 +90,17 @@ namespace ggp
 	private:
 		struct InternalTransform
 		{
-			DirectX::XMFLOAT3A localPosition = {};
-			DirectX::XMFLOAT3A localRotation = {};
-			DirectX::XMFLOAT3A localScale = {1, 1, 1};
-			DirectX::XMFLOAT4X4A matrix = {};
+			DirectX::XMFLOAT3 localPosition = {};
+			DirectX::XMFLOAT3 localRotation = {};
+			DirectX::XMFLOAT3 localScale = {1, 1, 1};
+			DirectX::XMFLOAT4X4A worldMatrix;
+			DirectX::XMFLOAT4X4A worldInverseTransposeMatrix;
 			i32 parentHandle = -1;
 			i32 nextSiblingHandle = -1;
 			i32 childHandle = -1;
 			bool isDirty = false;
+
+			InternalTransform() noexcept;
 		};
 
 		inline constexpr InternalTransform* GetPtr(Handle h) const noexcept
@@ -128,7 +130,6 @@ namespace ggp
 		mutable std::vector<u32> m_cleaningArena;
 		// for recursing into the tree without using call stack recursion, we still need a stack of some kind
 		mutable std::vector<DirtyStackFrame> m_dirtyStack;
-		std::vector<u32> m_rootTransforms;
 		BlockAllocator m_transformAllocator;
 	};
 
@@ -158,18 +159,21 @@ namespace ggp
 	{
 		gassert(!IsNull(h), "attempt to change the local position of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localPosition, pos);
+		MarkDirty(h._inner);
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreLocalEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
 	{
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localRotation, angles);
+		MarkDirty(h._inner);
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreLocalScale(Handle h, DirectX::FXMVECTOR scale) noexcept
 	{
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		DirectX::XMStoreFloat3(&GetPtr(h)->localScale, scale);
+		MarkDirty(h._inner);
 	}
 
 	inline void TransformHierarchy::LoadMatrixDecomposed(
@@ -184,7 +188,7 @@ namespace ggp
 		if (trans->isDirty)
 			Clean(h._inner);
 
-		DirectX::XMMATRIX mat = XMLoadFloat4x4(&trans->matrix);
+		DirectX::XMMATRIX mat = XMLoadFloat4x4(&trans->worldMatrix);
 		const bool success = XMMatrixDecompose(outScale, outQuat, outPos, mat);
 		// this should never fail, hopefully the transform wrapper prevents matrix from ever becoming invalid or something
 		assert(success);
@@ -205,7 +209,7 @@ namespace ggp
 		auto* trans = GetPtr(h);
 		if (trans->isDirty)
 			Clean(h._inner);
-		return ExtractEulersFromMatrix(&trans->matrix);
+		return ExtractEulersFromMatrix(&trans->worldMatrix);
 	}
 
 	inline DirectX::XMVECTOR TransformHierarchy::LoadScale(Handle h) const noexcept
@@ -219,7 +223,7 @@ namespace ggp
 
 	inline void TH_VECTORCALL TransformHierarchy::StorePosition(Handle h, DirectX::FXMVECTOR pos) noexcept
 	{
-		gabort(); // unimplemented
+		fprintf(stderr, "WARNING: StorePosition unimplemented/broken\n");
 		DirectX::XMVECTOR outPos;
 		DirectX::XMVECTOR outQuat;
 		DirectX::XMVECTOR outScale;
@@ -230,20 +234,31 @@ namespace ggp
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
 	{
-		gabort(); // unimplemented
-		DirectX::XMVECTOR outPos;
-		DirectX::XMVECTOR outQuat;
-		DirectX::XMVECTOR outScale;
-		LoadMatrixDecomposed(h, &outPos, &outQuat, &outScale);
-		// TODO: convert input to quat, just quaternion multiply them
+		using namespace DirectX;
+		XMVECTOR localQuat; // innaccurate name, at first
+		XMVECTOR globalQuat;
+		XMVECTOR targetQuat; // innaccurate name, at first
+		LoadMatrixDecomposed(h, &localQuat, &globalQuat, &targetQuat);
+
+		targetQuat = XMQuaternionRotationRollPitchYawFromVector(angles);
+		localQuat = XMQuaternionRotationRollPitchYawFromVector(LoadLocalEulerAngles(h));
+		// "subtract" the contribution of the local angles- effectively the parent's global rotation
+		globalQuat = XMQuaternionMultiply(globalQuat, XMQuaternionInverse(localQuat));
+		// target is now delta-to-target
+		targetQuat = XMQuaternionMultiply(targetQuat, XMQuaternionInverse(globalQuat));
+
+		XMFLOAT4 quaternionForm;
+		XMStoreFloat4(&quaternionForm, targetQuat);
+		SetLocalRotation(h, QuatToEuler(quaternionForm));
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreScale(Handle h, DirectX::FXMVECTOR scale) noexcept
 	{
+		using namespace DirectX;
 		// modifying global scale should modify local scale, but just do it in global space.
-		DirectX::XMVECTOR delta; // innaccurate name
-		DirectX::XMVECTOR localScale; // this name is innaccurate at first, actually quat
-		DirectX::XMVECTOR globalScale; // what we care about
+		XMVECTOR delta; // innaccurate name
+		XMVECTOR localScale; // this name is innaccurate at first, actually quat
+		XMVECTOR globalScale; // what we care about
 		LoadMatrixDecomposed(h, &delta, &localScale, &globalScale);
 		localScale = LoadLocalScale(h); // okay now its accurate
 		delta = XMVectorSubtract(scale, globalScale); // difference between the target scale and our scale

@@ -16,6 +16,7 @@
 #include <DirectXMath.h>
 
 #include <array>
+#include <algorithm>
 
 // Needed for a helper function to load pre-compiled shader files
 #pragma comment(lib, "d3dcompiler.lib")
@@ -40,6 +41,8 @@ void Game::Initialize()
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
 	CreateGeometry();
+	m_transformHierarchy = Transform::CreateHierarchySingleton();
+	CreateEntities();
 
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -66,18 +69,19 @@ void Game::Initialize()
 	{
 		// create dynamic constant buffer on gpu
 		const D3D11_BUFFER_DESC desc{
-			.ByteWidth = alignsize<cb::OffsetAndColor, 16>::value,
+			.ByteWidth = alignsize<cb::TransformAndColor, 16>::value,
 			.Usage = D3D11_USAGE_DYNAMIC,
 			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
 			.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
 		};
 		Graphics::Device->CreateBuffer(&desc, nullptr, m_constantBuffer.GetAddressOf());
 
-		// initial offset and color. not mapped / put into gpu until draw
+		// initial transform and color. not mapped / put into gpu until draw
 		m_constantBufferCPUSide = {
 			.color = { 1.0f, 0.5f, 0.5f, 1.0f },
-			.offset = { 0.25f, 0.0f, 0.0f },
 		};
+		// initialize to identity, why not
+		XMStoreFloat4x4(&m_constantBufferCPUSide.worldMatrix, XMMatrixIdentity());
 
 		// bind cb and keep binding for the whole program
 		Graphics::Context->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
@@ -103,6 +107,7 @@ void Game::Initialize()
 // --------------------------------------------------------
 Game::~Game()
 {
+	Transform::DestroyHierarchySingleton(&m_transformHierarchy);
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
@@ -179,6 +184,40 @@ void Game::LoadShaders()
 	}
 }
 
+void Game::CreateEntities()
+{
+	Mesh* tri = &m_alwaysLoadedMeshes["triangle"];
+	Entity root(tri);
+	root.GetTransform().SetPosition({ -0.5f, -0.5f, -0.0f });
+	Entity out1(tri, root.GetTransform().AddChild());
+	Entity out2(tri, root.GetTransform().AddChild());
+	Entity out3(tri, root.GetTransform().AddChild());
+
+	out1.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
+	out2.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
+	out3.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
+
+	out1.GetTransform().MoveAbsolute({ 0.2f, 0.2f, 0.f });
+	out2.GetTransform().MoveAbsolute({ -0.2f, 0.0f, 0.1f });
+	out3.GetTransform().MoveAbsolute({ 0.0f, -0.3f, 0.05f });
+
+	Mesh* drop = &m_alwaysLoadedMeshes["droplet"];
+	Entity droplet1(drop, out1.GetTransform().AddChild());
+	Entity droplet2(drop, out1.GetTransform().AddChild());
+	Entity droplet3(drop, out1.GetTransform().AddChild());
+
+	droplet1.GetTransform().MoveAbsolute({ 0.2f, 0.2f, 0.f });
+	droplet2.GetTransform().MoveAbsolute({ -0.2f, 0.0f, 0.1f });
+	droplet3.GetTransform().MoveAbsolute({ 0.0f, -0.3f, 0.05f });
+
+	m_entities.push_back(root);
+	m_entities.push_back(out1);
+	m_entities.push_back(out2);
+	m_entities.push_back(out3);
+	m_entities.push_back(droplet1);
+	m_entities.push_back(droplet2);
+	m_entities.push_back(droplet3);
+}
 
 // --------------------------------------------------------
 // Creates the geometry we're going to draw
@@ -222,32 +261,11 @@ void Game::CreateGeometry()
 	};
 	u32 droplet_indices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
 
-	// offset the droplet by an amount
-	{
-		XMFLOAT3 droplet_offset = { -0.5, 0.5, 0 };
-		XMVECTOR droplet_offset_register = XMLoadFloat3(&droplet_offset);
-		for (auto& v : droplet_vertices) {
-			XMVECTOR pos = XMLoadFloat3(&v.Position);
-			pos += droplet_offset_register;
-			XMStoreFloat3(&v.Position, pos);
-		}
-	}
-
-	// offset the hexagon by an amount
-	{
-		XMFLOAT3 hexagon_offset = { 0.5, 0.5, 0 };
-		XMVECTOR hexagon_offset_register = XMLoadFloat3(&hexagon_offset);
-		for (auto& v : hexagon_vertices) {
-			XMVECTOR pos = XMLoadFloat3(&v.Position);
-			pos += hexagon_offset_register;
-			XMStoreFloat3(&v.Position, pos);
-		}
-	}
-
 	// upload all three meshes to the GPU
-	m_alwaysLoadedMeshes.emplace_back(triangle_vertices, triangle_indices);
-	m_alwaysLoadedMeshes.emplace_back(hexagon_vertices, hexagon_indices);
-	m_alwaysLoadedMeshes.emplace_back(droplet_vertices, droplet_indices);
+	// NOTE: funny default construction + overwrite happening here
+	m_alwaysLoadedMeshes["triangle"] = Mesh(triangle_vertices, triangle_indices);
+	m_alwaysLoadedMeshes["hexagon"] = Mesh(hexagon_vertices, hexagon_indices);
+	m_alwaysLoadedMeshes["droplet"] = Mesh(droplet_vertices, droplet_indices);
 }
 
 void Game::UIBeginFrame(float deltaTime) noexcept
@@ -280,6 +298,22 @@ void Game::OnResize()
 {
 }
 
+static void WiggleRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
+{
+	if (auto c = t.GetFirstChild())
+	{
+		WiggleRecursive(delta, totalTime, c.value(), depth + 1, 0);
+	}
+	if (auto s = t.GetNextSibling())
+	{
+		WiggleRecursive(delta, totalTime, s.value(), depth, index + 1);
+	}
+
+	t.SetPosition({ .0f + (index / 3.f), .0f + (0.3f * sin(totalTime + depth + index)), 0.f});
+	float scale = ((sinf(totalTime) + 1) * 0.25f) + 0.5f;
+	t.SetScale({ scale, scale, 1.0f});
+	t.Rotate({ 0.f, 0.f, delta });
+}
 
 // --------------------------------------------------------
 // Update your game here - user input, move objects, AI, etc.
@@ -299,6 +333,9 @@ void Game::Update(float deltaTime, float totalTime)
 		// put current framerate on the end of the graph
 		(*m_framerateHistory)[lastSampleIndex] = ImGui::GetIO().Framerate;
 	}
+
+	Transform root = m_entities[0].GetTransform();
+	WiggleRecursive(deltaTime, totalTime, root);
 
 	// UI frame ended in Draw()
 	UIBeginFrame(deltaTime);
@@ -345,32 +382,31 @@ void Game::BuildUI() noexcept
 	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
 
-	ImGui::DragFloat2("Offset", &m_constantBufferCPUSide.offset.x, 0.01f, -2.0f, 2.0f);
 	ImGui::ColorEdit4("Color", &m_constantBufferCPUSide.color.x);
 
 	{
 		std::array<char, 64> buf;
-		for (size_t i = 0; i < m_alwaysLoadedMeshes.size(); ++i) {
+		for (size_t i = 0; i < m_entities.size(); ++i) {
 			// NOTE: using snprintf here instead of std::string or BulletTextV because I was having issues with each and was tired
 			// TODO: make this use BulletTextV and TreeNodeExV
-			int bytes_printed = std::snprintf(buf.data(), buf.size(), "mesh %zu", i);
+			int bytes_printed = std::snprintf(buf.data(), buf.size(), "entity %zu", i);
 			gassert(bytes_printed < buf.size());
 
 			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 			if (ImGui::TreeNodeEx(buf.data(), flag))
 			{
-				const Mesh& mesh = m_alwaysLoadedMeshes[i];
+				const Entity& entity = m_entities[i];
 				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", mesh.GetVertexCount());
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", entity.GetMesh()->GetVertexCount());
 				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", mesh.GetIndexCount());
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", entity.GetMesh()->GetIndexCount());
 				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", mesh.GetIndexCount() / 3);
+				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", entity.GetMesh()->GetIndexCount() / 3);
 				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
 
@@ -397,18 +433,17 @@ void Game::Draw(float deltaTime, float totalTime)
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
-	// send cb to shaders
+	for (ggp::Entity& entity : m_entities)
 	{
-		D3D11_MAPPED_SUBRESOURCE cbMapped{};
-		Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
-		*(cb::OffsetAndColor*)cbMapped.pData = m_constantBufferCPUSide;
-		Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
-	}
-
-	// draw all the meshes that are always loaded
-	for (auto& mesh : m_alwaysLoadedMeshes)
-	{
-		mesh.BindBuffersAndDraw();
+		m_constantBufferCPUSide.worldMatrix = entity.GetTransform().GetWorldMatrix();
+		// send cb to shaders
+		{
+			D3D11_MAPPED_SUBRESOURCE cbMapped{};
+			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
+			memcpy(cbMapped.pData, &m_constantBufferCPUSide, sizeof(m_constantBufferCPUSide));
+			Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
+		}
+		entity.GetMesh()->BindBuffersAndDraw();
 	}
 
 	// begun in Update()

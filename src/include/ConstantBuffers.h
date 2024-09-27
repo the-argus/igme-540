@@ -9,4 +9,10 @@ namespace ggp::cb
 		DirectX::XMFLOAT4 color;
 		DirectX::XMFLOAT3 offset;
 	};
+
+	struct TransformAndColor
+	{
+		DirectX::XMFLOAT4 color;
+		DirectX::XMFLOAT4X4 worldMatrix;
+	};
 }

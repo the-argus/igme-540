@@ -3,6 +3,7 @@
 #include <span>
 #include "short_numbers.h"
 #include "errors.h"
+#include "memutils.h"
 
 namespace ggp
 {
@@ -35,10 +36,16 @@ namespace ggp
 		template <typename T>
 		inline u32 GetIndexFromPointer(T* item) const noexcept
 		{
+			gassert(is_inbounds_bytes(m_memory, item));
+			gassert(((u8*)item - m_memory.data()) % m_blockSize == 0);
+			gassert(((u8*)item - m_memory.data()) / m_blockSize < INT_MAX, "index overflow");
+			return u32(((u8*)item - m_memory.data()) / m_blockSize);
 		}
 
-		inline void* GetPointerFromIndex(u32 idx) const noexcept
-		{}
+		inline constexpr void* GetPointerFromIndex(u32 idx) const noexcept
+		{
+			return m_memory.data() + (m_blockSize * idx);
+		}
 
 		/// <summary>
 		/// Construct an object of type T within a block in this allocator.
@@ -50,7 +57,7 @@ namespace ggp
 		inline T* Create(Args&&... args) noexcept
 		{
 			static_assert(std::is_trivially_destructible_v<T>, "BlockAllocator::create will call constructor of a type which it cannot destruct");
-			if (sizeof(T) > m_blockSize || alignof(T) > (1 << m_minAlignmentExponent)) [[unlikely]]
+			if (sizeof(T) > m_blockSize || alignof(T) > (u64(1UL) << m_minAlignmentExponent)) [[unlikely]]
 			{
 				gassert(false, "Attempt to create type with block allocator, but its too big or too aligned");
 				return nullptr;

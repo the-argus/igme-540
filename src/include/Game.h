@@ -4,10 +4,12 @@
 #include <wrl/client.h>
 #include <array>
 #include <vector>
+#include <unordered_map>
 #include <memory>
 #include <string>
 
 #include "Mesh.h"
+#include "Entity.h"
 #include "ConstantBuffers.h"
 #include "ggp_com_pointer.h"
 
@@ -31,6 +33,7 @@ private:
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void LoadShaders();
 	void CreateGeometry();
+	void CreateEntities();
 	void UIBeginFrame(float deltaTime) noexcept;
 	void UIEndFrame() noexcept;
 	void BuildUI() noexcept;
@@ -47,10 +50,12 @@ private:
 	bool m_demoWindowVisible = false;
 
 	// meshes that load at the start of the game and unload at the end- avoid lifetime management (for now)
-	std::vector<ggp::Mesh> m_alwaysLoadedMeshes;
+	std::unordered_map<std::string, ggp::Mesh> m_alwaysLoadedMeshes;
+	std::vector<ggp::Entity> m_entities;
+	ggp::TransformHierarchy* m_transformHierarchy;
 
 	ggp::com_p<ID3D11Buffer> m_constantBuffer;
-	ggp::cb::OffsetAndColor m_constantBufferCPUSide;
+	ggp::cb::TransformAndColor m_constantBufferCPUSide;
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the

@@ -170,7 +170,9 @@
     <ClCompile Include="src/PathHelpers.cpp" />
     <ClCompile Include="src/Window.cpp" />
     <ClCompile Include="src\BlockAllocator.cpp" />
+    <ClCompile Include="src\Entity.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
+    <ClCompile Include="src\Transform.cpp" />
     <ClCompile Include="src\TransformHierarchy.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -190,11 +192,12 @@
     <ClInclude Include="src/include/Window.h" />
     <ClInclude Include="src\include\BlockAllocator.h" />
     <ClInclude Include="src\include\ConstantBuffers.h" />
+    <ClInclude Include="src\include\Entity.h" />
     <ClInclude Include="src\include\errors.h" />
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
     <ClInclude Include="src\include\Mesh.h" />
-    <ClInclude Include="src\include\TransformHandle.h" />
+    <ClInclude Include="src\include\Transform.h" />
     <ClInclude Include="src\include\TransformHierarchy.h" />
   </ItemGroup>
   <ItemGroup>

@@ -12,7 +12,7 @@ ggp::BlockAllocator::BlockAllocator(const Options& options) noexcept
 	m_minAlignmentExponent = options.minimumAlignmentExponent;
 	m_pageSize = mm::get_page_size();
 	m_blockSize = max(options.blockSize, sizeof EmptyBlock); // NOTE: macro preventing me from using std::max? :(
-	m_blockSize = rround_up_to_multiple_of(m_blockSize, 1UL << options.minimumAlignmentExponent);
+	m_blockSize = rround_up_to_multiple_of(m_blockSize, u64(1UL) << u8(options.minimumAlignmentExponent));
 	const size_t pagesReserved = rround_up_to_multiple_of(options.maxBytes, m_pageSize) / m_pageSize;
 	const size_t bytesCommitted = options.initialBytes == 0 ? 0 : rround_up_to_multiple_of(options.initialBytes, m_pageSize);
 	const size_t pagesCommitted = bytesCommitted / m_pageSize;

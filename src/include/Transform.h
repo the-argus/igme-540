@@ -16,6 +16,7 @@ namespace ggp
 
 		static TransformHierarchy* CreateHierarchySingleton() noexcept;
 		static void DestroyHierarchySingleton(TransformHierarchy**) noexcept;
+		static Transform Create() noexcept; // explicitly allocate a new transform
 
 		Transform() = delete;
 		inline constexpr Transform(Handle h) noexcept : handle(h) {}
@@ -28,13 +29,39 @@ namespace ggp
 		Transform AddChild() noexcept;
 		void Destroy() noexcept;
 
-		const DirectX::XMFLOAT4X4* GetMatrix() noexcept;
+		const DirectX::XMFLOAT4X4* GetWorldMatrixPtr() noexcept;
+		const DirectX::XMFLOAT4X4* GetWorldInverseTransposeMatrixPtr() noexcept;
+		DirectX::XMFLOAT4X4 GetWorldMatrix();
+		DirectX::XMFLOAT4X4 GetWorldInverseTransposeMatrix();
 
-		// the only const functions are the loads, a const transform is pretty useless
+		// you can get... everything
+		void SetPosition(float x, float y, float z);
+		void SetPosition(DirectX::XMFLOAT3 position);
+		void SetRotation(float pitch, float yaw, float roll);
+		void SetRotation(DirectX::XMFLOAT3 rotation);
+		void SetScale(float x, float y, float z);
+		void SetScale(DirectX::XMFLOAT3 scale);
+		DirectX::XMFLOAT3 GetPosition() const;
+		DirectX::XMFLOAT3 GetPitchYawRoll() const;
+		DirectX::XMFLOAT3 GetScale() const;
+		void MoveAbsolute(float x, float y, float z);
+		void MoveAbsolute(DirectX::XMFLOAT3 offset);
+		void Rotate(float pitch, float yaw, float roll);
+		void Rotate(DirectX::XMFLOAT3 rotation);
+		void Scale(float x, float y, float z);
+		void Scale(DirectX::XMFLOAT3 scale);
+
+		/// <summary>
+		/// Gets the local translation, rotation, and scale of the transform simultaneously.
+		/// </summary>
+		/// <param name="outPos">The SIMD register in which to put the position (x, y, z)</param>
+		/// <param name="outQuat">The SIMD register in which to put the rotation, as a quaternion (x, y, z, w)</param>
+		/// <param name="outScale">The SIMD register in which to put the scale (x, y, z)</param>
 		inline void LoadMatrixDecomposed(
 			DirectX::XMVECTOR* outPos,
 			DirectX::XMVECTOR* outQuat,
 			DirectX::XMVECTOR* outScale) const noexcept;
+
 		inline DirectX::XMVECTOR LoadLocalPosition() const noexcept;
 		inline DirectX::XMVECTOR LoadLocalEulerAngles() const noexcept;
 		inline DirectX::XMVECTOR LoadLocalScale() const noexcept;

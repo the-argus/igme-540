@@ -15,7 +15,9 @@ namespace ggp
 		const Mesh& operator=(const Mesh&) = delete;
 		// yes move, comptr should handle the move
 		Mesh(Mesh&&) noexcept = default;
-		Mesh&& operator=(Mesh&&) noexcept = delete;
+		Mesh& operator=(Mesh&&) noexcept = default;
+
+		inline Mesh() {}
 
 		/// <summary>
 		/// Construct a mesh by uploading the given vertices and indices to the GPU. the resulting
@@ -44,10 +46,9 @@ namespace ggp
 		// initialize an index buffer handle
 		com_p<ID3D11Buffer> UploadIndexBuffer(std::span<u32> indices) noexcept;
 
-		Mesh() noexcept; // prevent null mesh from ever existing
 		com_p<ID3D11Buffer> m_vertexBuffer;
 		com_p<ID3D11Buffer> m_indexBuffer;
-		u64 m_numVertices;
-		u64 m_numIndices;
+		u64 m_numVertices = 0;
+		u64 m_numIndices = 0;
 	};
 }
