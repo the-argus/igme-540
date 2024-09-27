@@ -298,15 +298,15 @@ void Game::OnResize()
 {
 }
 
-static void WiggleRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
+static void SpinRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
 {
 	if (auto c = t.GetFirstChild())
 	{
-		WiggleRecursive(delta, totalTime, c.value(), depth + 1, 0);
+		SpinRecursive(delta, totalTime, c.value(), depth + 1, 0);
 	}
 	if (auto s = t.GetNextSibling())
 	{
-		WiggleRecursive(delta, totalTime, s.value(), depth, index + 1);
+		SpinRecursive(delta, totalTime, s.value(), depth, index + 1);
 	}
 
 	t.SetPosition({ .0f + (index / 3.f), .0f + (0.3f * sin(totalTime + depth + index)), 0.f});
@@ -334,8 +334,11 @@ void Game::Update(float deltaTime, float totalTime)
 		(*m_framerateHistory)[lastSampleIndex] = ImGui::GetIO().Framerate;
 	}
 
-	Transform root = m_entities[0].GetTransform();
-	WiggleRecursive(deltaTime, totalTime, root);
+	if (m_spinningEnabled)
+	{
+		Transform root = m_entities[0].GetTransform();
+		SpinRecursive(deltaTime, totalTime, root);
+	}
 
 	// UI frame ended in Draw()
 	UIBeginFrame(deltaTime);
@@ -384,6 +387,8 @@ void Game::BuildUI() noexcept
 
 	ImGui::ColorEdit4("Color", &m_constantBufferCPUSide.color.x);
 
+	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled));
+
 	{
 		std::array<char, 64> buf;
 		for (size_t i = 0; i < m_entities.size(); ++i) {
@@ -395,8 +400,24 @@ void Game::BuildUI() noexcept
 			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 			if (ImGui::TreeNodeEx(buf.data(), flag))
 			{
-				const Entity& entity = m_entities[i];
+				ImGui::PushID(i);
+				Entity& entity = m_entities[i];
 				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
+
+				XMFLOAT3 pos = entity.GetTransform().GetPosition();
+				if (ImGui::DragFloat3("Position", &pos.x, 0.01f, -1.f, 1.f)) {
+					entity.GetTransform().SetPosition(pos);
+				}
+
+				pos = entity.GetTransform().GetPitchYawRoll();
+				if (ImGui::DragFloat3("Rotation (Radians)", &pos.x, 0.01f, -1.f, 1.f)) {
+					entity.GetTransform().SetRotation(pos);
+				}
+
+				pos = entity.GetTransform().GetScale();
+				if (ImGui::DragFloat3("Scale", &pos.x, 0.01f, -1.f, 1.f)) {
+					entity.GetTransform().SetScale(pos);
+				}
 
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", entity.GetMesh()->GetVertexCount());
 				gassert(bytes_printed < buf.size());
@@ -409,6 +430,8 @@ void Game::BuildUI() noexcept
 				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", entity.GetMesh()->GetIndexCount() / 3);
 				gassert(bytes_printed < buf.size());
 				ImGui::BulletText(buf.data());
+
+				ImGui::PopID();
 
 				// close this treenode and move to next one
 				ImGui::TreePop();

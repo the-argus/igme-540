@@ -38,6 +38,7 @@ private:
 	void UIEndFrame() noexcept;
 	void BuildUI() noexcept;
 
+	bool m_spinningEnabled = true;
 	std::array<float, 4> m_backgroundColor = { 0 };
 	// NOTE: number of samples is tied to the percieved scroll speed of the graph,
 	// which also moves at a frame dependent speed
