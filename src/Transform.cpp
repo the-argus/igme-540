@@ -76,42 +76,10 @@ DirectX::XMFLOAT3 ggp::Transform::GetPitchYawRoll() const { return hierarchy->Ge
 DirectX::XMFLOAT3 ggp::Transform::GetScale() const { return hierarchy->GetLocalScale(handle); }
 
 // transformers
-void ggp::Transform::MoveAbsolute(float x, float y, float z)
-{
-	XMVECTOR diff = XMVectorSet(x, y, z, 0);
-	XMVECTOR current = LoadLocalPosition();
-	StoreLocalPosition(XMVectorAdd(diff, current));
-}
-
-void ggp::Transform::MoveAbsolute(DirectX::XMFLOAT3 offset)
-{
-	XMVECTOR diff = XMLoadFloat3(&offset);
-	XMVECTOR current = LoadLocalPosition();
-	StoreLocalPosition(XMVectorAdd(diff, current));
-}
-
-void ggp::Transform::Rotate(float pitch, float yaw, float roll)
-{
-	// not having multiple copies of the rotate function like
-	// move, since its pretty complicated and i think i may have got it wrong
-	Rotate({ pitch, yaw, roll });
-}
-
-void ggp::Transform::Rotate(DirectX::XMFLOAT3 rotation)
-{
-	XMVECTOR diff = XMLoadFloat3(&rotation);
-	XMVECTOR current = LoadLocalEulerAngles();
-	// convert to quat
-	current = XMQuaternionRotationRollPitchYawFromVector(current);
-	diff = XMQuaternionRotationRollPitchYawFromVector(diff);
-
-	// store, quattoeuler doesnt use simd
-	XMFLOAT4 q;
-	current = XMQuaternionMultiply(diff, current);
-	XMStoreFloat4(&q, current);
-
-	SetRotation(QuatToEuler(q));
-}
+void ggp::Transform::MoveAbsolute(float x, float y, float z) { MoveAbsolute(XMVectorSet(x, y, z, 0)); }
+void ggp::Transform::MoveAbsolute(DirectX::XMFLOAT3 offset) { MoveAbsolute(XMLoadFloat3(&offset)); }
+void ggp::Transform::Rotate(float pitch, float yaw, float roll) { Rotate(XMVectorSet(pitch, yaw, roll, 0.f)); }
+void ggp::Transform::Rotate(DirectX::XMFLOAT3 rotation) { Rotate(XMLoadFloat3(&rotation)); }
 
 void ggp::Transform::Scale(float x, float y, float z)
 {

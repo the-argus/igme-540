@@ -56,6 +56,12 @@ namespace ggp
 		void Scale(float x, float y, float z);
 		void Scale(DirectX::XMFLOAT3 scale);
 
+		// simd variants
+		inline void TH_VECTORCALL Scale(DirectX::FXMVECTOR scale) noexcept;
+		inline void TH_VECTORCALL Rotate(DirectX::FXMVECTOR eulerAngles) noexcept;
+		inline void TH_VECTORCALL MoveAbsolute(DirectX::FXMVECTOR offset) noexcept;
+		inline void TH_VECTORCALL MoveRelative(DirectX::FXMVECTOR offset) noexcept;
+
 		/// <summary>
 		/// Gets the local translation, rotation, and scale of the transform simultaneously.
 		/// </summary>
@@ -191,4 +197,33 @@ namespace ggp
 	{
 		internals::hierarchy->StoreLocalScale(handle, scale);
 	}
+
+	inline void TH_VECTORCALL Transform::Scale(DirectX::FXMVECTOR scale) noexcept
+	{
+		using namespace DirectX;
+		internals::hierarchy->StoreLocalScale(handle, XMVectorMultiply(scale, internals::hierarchy->LoadLocalScale(handle)));
+	}
+
+	inline void TH_VECTORCALL Transform::Rotate(DirectX::FXMVECTOR eulerAngles) noexcept
+	{
+		using namespace DirectX;
+		// convert to quat
+		XMVECTOR current = XMQuaternionRotationRollPitchYawFromVector(LoadLocalEulerAngles());
+		XMVECTOR diff = XMQuaternionRotationRollPitchYawFromVector(eulerAngles);
+
+		// actual rotation
+		current = XMQuaternionMultiply(diff, current);
+
+		// store, quattoeuler doesnt use simd
+		XMFLOAT4 q;
+		XMStoreFloat4(&q, current);
+		SetRotation(QuatToEuler(q));
+	}
+
+	inline void TH_VECTORCALL Transform::MoveAbsolute(DirectX::FXMVECTOR offset) noexcept
+	{
+		StoreLocalPosition(XMVectorAdd(offset, LoadLocalPosition()));
+	}
+
+	inline void TH_VECTORCALL MoveRelative(DirectX::FXMVECTOR offset) noexcept;
 }
