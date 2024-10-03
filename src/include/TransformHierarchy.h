@@ -24,7 +24,7 @@ namespace ggp
 			friend class TransformHierarchy;
 		private:
 			i32 _inner;
-			inline constexpr Handle(u32 idx) noexcept  : _inner(idx) {}
+			inline constexpr Handle(u32 idx) noexcept : _inner(idx) {}
 		};
 
 		TransformHierarchy() noexcept;
@@ -79,6 +79,10 @@ namespace ggp
 		inline DirectX::XMVECTOR LoadEulerAngles(Handle) const noexcept;
 		inline DirectX::XMVECTOR LoadScale(Handle) const noexcept;
 
+		inline DirectX::XMVECTOR LoadForwardVector(Handle) const noexcept;
+		inline DirectX::XMVECTOR LoadRightVector(Handle) const noexcept;
+		inline DirectX::XMVECTOR LoadUpVector(Handle) const noexcept;
+
 		// setters- cause updates in the transform hierarchy
 		inline void TH_VECTORCALL StorePosition(Handle, DirectX::FXMVECTOR pos) noexcept;
 		inline void TH_VECTORCALL StoreEulerAngles(Handle, DirectX::FXMVECTOR angles) noexcept;
@@ -92,7 +96,7 @@ namespace ggp
 		{
 			DirectX::XMFLOAT3 localPosition = {};
 			DirectX::XMFLOAT3 localRotation = {};
-			DirectX::XMFLOAT3 localScale = {1, 1, 1};
+			DirectX::XMFLOAT3 localScale = { 1, 1, 1 };
 			DirectX::XMFLOAT4X4A worldMatrix;
 			DirectX::XMFLOAT4X4A worldInverseTransposeMatrix;
 			i32 parentHandle = -1;
@@ -219,6 +223,39 @@ namespace ggp
 		DirectX::XMVECTOR scale;
 		LoadMatrixDecomposed(h, &pos, &quat, &scale);
 		return scale;
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadForwardVector(Handle h) const noexcept
+	{
+		DirectX::XMVECTOR out;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &out, &quat, &scale);
+		DirectX::XMVectorSet(0, 0, 1, 0);
+		DirectX::XMVector3Rotate(out, quat);
+		return out;
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadRightVector(Handle h) const noexcept
+	{	
+		DirectX::XMVECTOR out;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &out, &quat, &scale);
+		DirectX::XMVectorSet(1, 0, 0, 0);
+		DirectX::XMVector3Rotate(out, quat);
+		return out;
+	}
+
+	inline DirectX::XMVECTOR TransformHierarchy::LoadUpVector(Handle h) const noexcept
+	{
+		DirectX::XMVECTOR out;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &out, &quat, &scale);
+		DirectX::XMVectorSet(0, 1, 0, 0);
+		DirectX::XMVector3Rotate(out, quat);
+		return out;
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StorePosition(Handle h, DirectX::FXMVECTOR pos) noexcept

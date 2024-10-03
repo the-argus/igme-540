@@ -44,8 +44,13 @@ namespace ggp
 		DirectX::XMFLOAT3 GetPosition() const;
 		DirectX::XMFLOAT3 GetPitchYawRoll() const;
 		DirectX::XMFLOAT3 GetScale() const;
+		DirectX::XMFLOAT3 GetForward() const;
+		DirectX::XMFLOAT3 GetUp() const;
+		DirectX::XMFLOAT3 GetRight() const;
 		void MoveAbsolute(float x, float y, float z);
 		void MoveAbsolute(DirectX::XMFLOAT3 offset);
+		void MoveRelative(float x, float y, float z);
+		void MoveRelative(XMFLOAT3 offset);
 		void Rotate(float pitch, float yaw, float roll);
 		void Rotate(DirectX::XMFLOAT3 rotation);
 		void Scale(float x, float y, float z);
@@ -68,6 +73,22 @@ namespace ggp
 		inline DirectX::XMVECTOR LoadPosition() const noexcept;
 		inline DirectX::XMVECTOR LoadEulerAngles() const noexcept;
 		inline DirectX::XMVECTOR LoadScale() const noexcept;
+
+		/// <summary>
+		/// Calculate the forward vector for this transform in global space.
+		/// May invoke tree traversal if the transform is dirty
+		/// </summary>
+		inline DirectX::XMVECTOR LoadForwardVector() const noexcept;
+		/// <summary>
+		/// Calculate the right vector for this transform in global space.
+		/// May invoke tree traversal if the transform is dirty
+		/// </summary>
+		inline DirectX::XMVECTOR LoadRightVector() const noexcept;
+		/// <summary>
+		/// Calculate the up vector for this transform in global space.
+		/// May invoke tree traversal if the transform is dirty
+		/// </summary>
+		inline DirectX::XMVECTOR LoadUpVector() const noexcept;
 
 		// store local space or global space
 		inline void TH_VECTORCALL StorePosition(DirectX::FXMVECTOR pos) noexcept;
@@ -124,6 +145,21 @@ namespace ggp
 	inline DirectX::XMVECTOR Transform::LoadScale() const noexcept
 	{
 		return internals::hierarchy->LoadScale(handle);
+	}
+
+	inline DirectX::XMVECTOR Transform::LoadForwardVector() const noexcept
+	{
+		return internals::hierarchy->LoadForwardVector(handle);
+	}
+
+	inline DirectX::XMVECTOR Transform::LoadRightVector() const noexcept
+	{
+		return internals::hierarchy->LoadRightVector(handle);
+	}
+
+	inline DirectX::XMVECTOR Transform::LoadUpVector() const noexcept
+	{
+		return internals::hierarchy->LoadUpVector(handle);
 	}
 
 	inline void TH_VECTORCALL Transform::StorePosition(DirectX::FXMVECTOR pos) noexcept

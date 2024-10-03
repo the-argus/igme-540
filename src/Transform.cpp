@@ -126,3 +126,27 @@ void ggp::Transform::Scale(DirectX::XMFLOAT3 scale)
 	XMVECTOR current = LoadLocalScale();
 	StoreLocalScale(XMVectorMultiply(diff, current));
 }
+
+XMFLOAT3 ggp::Transform::GetForward() const
+{
+	XMFLOAT3 out;
+	XMVECTOR forward = LoadForwardVector();
+	XMStoreFloat3(&out, forward);
+	return out;
+}
+
+XMFLOAT3 ggp::Transform::GetUp() const
+{
+	XMFLOAT3 out;
+	XMVECTOR forward = LoadUpVector();
+	XMStoreFloat3(&out, forward);
+	return out;
+}
+
+XMFLOAT3 ggp::Transform::GetRight() const
+{
+	XMFLOAT3 out;
+	XMVECTOR forward = LoadRightVector();
+	XMStoreFloat3(&out, forward);
+	return out;
+}
