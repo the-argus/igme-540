@@ -4,9 +4,14 @@
 
 namespace ggp
 {
+	inline DirectX::XMVECTOR VectorSplat(f32 f)
+	{
+		return DirectX::XMVectorSet(f, f, f, f);
+	}
+
 	inline constexpr float DegToRad(float deg)
 	{
-		return (XM_PI / 180.f) * deg;
+		return (DirectX::XM_PI / 180.f) * deg;
 	}
 
 	inline DirectX::XMFLOAT3 QuatToEuler(const DirectX::XMFLOAT4& q) noexcept

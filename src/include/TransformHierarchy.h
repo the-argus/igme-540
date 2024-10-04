@@ -223,13 +223,16 @@ namespace ggp
 
 	inline void TH_VECTORCALL TransformHierarchy::StorePosition(Handle h, DirectX::FXMVECTOR pos) noexcept
 	{
-		fprintf(stderr, "WARNING: StorePosition unimplemented/broken\n");
-		DirectX::XMVECTOR outPos;
-		DirectX::XMVECTOR outQuat;
-		DirectX::XMVECTOR outScale;
-		LoadMatrixDecomposed(h, &outPos, &outQuat, &outScale);
-
-		// TODO: get difference between current and target position, convert to local space
+		using namespace DirectX;
+		DirectX::XMVECTOR currentPosition;
+		DirectX::XMVECTOR quat;
+		DirectX::XMVECTOR scale;
+		LoadMatrixDecomposed(h, &currentPosition, &quat, &scale);
+		XMVECTOR diff = XMVectorSubtract(pos, currentPosition);
+		// remove our rotation from the position diff to get local space diff
+		diff = XMVector3Rotate(diff, XMQuaternionInverse(quat));
+		// apply local diff
+		StoreLocalPosition(h, XMVectorAdd(LoadLocalPosition(h), diff));
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept

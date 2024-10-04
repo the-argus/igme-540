@@ -43,6 +43,7 @@ void Game::Initialize()
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
 	CreateEntities();
+	m_camera = std::make_shared<Camera>(Camera::Options{ .aspectRatio = Window::AspectRatio() });
 
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -69,7 +70,7 @@ void Game::Initialize()
 	{
 		// create dynamic constant buffer on gpu
 		const D3D11_BUFFER_DESC desc{
-			.ByteWidth = alignsize<cb::TransformAndColor, 16>::value,
+			.ByteWidth = alignsize<decltype(m_constantBufferCPUSide), 16>::value,
 			.Usage = D3D11_USAGE_DYNAMIC,
 			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
 			.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -193,9 +194,10 @@ void Game::CreateEntities()
 	Entity out2(tri, root.GetTransform().AddChild());
 	Entity out3(tri, root.GetTransform().AddChild());
 
-	out1.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
-	out2.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
-	out3.GetTransform().Scale({ 0.1f, 0.1f, 0.1f });
+	XMVECTOR pointOne = VectorSplat(.1f);
+	out1.GetTransform().ScaleVec(pointOne);
+	out2.GetTransform().ScaleVec(pointOne);
+	out3.GetTransform().ScaleVec(pointOne);
 
 	out1.GetTransform().MoveAbsolute({ 0.2f, 0.2f, 0.f });
 	out2.GetTransform().MoveAbsolute({ -0.2f, 0.0f, 0.1f });
@@ -296,6 +298,8 @@ void Game::UIEndFrame() noexcept
 // --------------------------------------------------------
 void Game::OnResize()
 {
+	if (m_camera)
+		m_camera->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
 }
 
 static void SpinRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
@@ -339,6 +343,8 @@ void Game::Update(float deltaTime, float totalTime)
 		Transform root = m_entities[0].GetTransform();
 		SpinRecursive(deltaTime, totalTime, root);
 	}
+
+	m_camera->Update(deltaTime);
 
 	// UI frame ended in Draw()
 	UIBeginFrame(deltaTime);
@@ -387,8 +393,7 @@ void Game::BuildUI() noexcept
 
 	ImGui::ColorEdit4("Color", &m_constantBufferCPUSide.color.x);
 
-	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled));
-
+	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
 	{
 		std::array<char, 64> buf;
 		for (size_t i = 0; i < m_entities.size(); ++i) {
@@ -400,7 +405,7 @@ void Game::BuildUI() noexcept
 			ImGuiTreeNodeFlags flag = ImGuiTreeNodeFlags_DefaultOpen;
 			if (ImGui::TreeNodeEx(buf.data(), flag))
 			{
-				ImGui::PushID(i);
+				ImGui::PushID(i32(i));
 				Entity& entity = m_entities[i];
 				constexpr auto flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet;
 
@@ -463,7 +468,12 @@ void Game::Draw(float deltaTime, float totalTime)
 		{
 			D3D11_MAPPED_SUBRESOURCE cbMapped{};
 			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
-			memcpy(cbMapped.pData, &m_constantBufferCPUSide, sizeof(m_constantBufferCPUSide));
+
+			((cb::WVPAndColor*)cbMapped.pData)->worldMatrix = *entity.GetTransform().GetWorldMatrixPtr();
+			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *m_camera->GetViewMatrix();
+			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *m_camera->GetProjectionMatrix();
+			((cb::WVPAndColor*)cbMapped.pData)->color = m_constantBufferCPUSide.color;
+
 			Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
 		}
 		entity.GetMesh()->BindBuffersAndDraw();

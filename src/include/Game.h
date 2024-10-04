@@ -10,6 +10,7 @@
 
 #include "Mesh.h"
 #include "Entity.h"
+#include "Camera.h"
 #include "ConstantBuffers.h"
 #include "ggp_com_pointer.h"
 
@@ -55,8 +56,10 @@ private:
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
 
+	std::shared_ptr<ggp::Camera> m_camera;
+
 	ggp::com_p<ID3D11Buffer> m_constantBuffer;
-	ggp::cb::TransformAndColor m_constantBufferCPUSide;
+	ggp::cb::WVPAndColor m_constantBufferCPUSide;
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the

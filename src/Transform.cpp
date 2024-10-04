@@ -76,16 +76,16 @@ DirectX::XMFLOAT3 ggp::Transform::GetPitchYawRoll() const { return hierarchy->Ge
 DirectX::XMFLOAT3 ggp::Transform::GetScale() const { return hierarchy->GetLocalScale(handle); }
 
 // transformers
-void ggp::Transform::MoveAbsolute(float x, float y, float z) { MoveAbsolute(XMVectorSet(x, y, z, 0)); }
-void ggp::Transform::MoveAbsolute(DirectX::XMFLOAT3 offset) { MoveAbsolute(XMLoadFloat3(&offset)); }
-void ggp::Transform::MoveAbsoluteLocal(float x, float y, float z) { MoveAbsoluteLocal(XMVectorSet(x, y, z, 0.f)); }
-void ggp::Transform::MoveAbsoluteLocal(DirectX::XMFLOAT3 offset) { MoveAbsoluteLocal(XMLoadFloat3(&offset)); }
-void ggp::Transform::Rotate(float pitch, float yaw, float roll) { Rotate(XMVectorSet(pitch, yaw, roll, 0.f)); }
-void ggp::Transform::Rotate(DirectX::XMFLOAT3 rotation) { Rotate(XMLoadFloat3(&rotation)); }
-void ggp::Transform::Scale(float x, float y, float z) { Scale(XMVectorSet(x, y, z, 0)); }
-void ggp::Transform::Scale(DirectX::XMFLOAT3 scale) { Scale(XMLoadFloat3(&scale)); }
-void ggp::Transform::MoveRelative(float x, float y, float z) { MoveRelative(XMVectorSet(x, y, z, 0.f)); }
-void ggp::Transform::MoveRelative(XMFLOAT3 offset) { MoveRelative(XMLoadFloat3(&offset)); }
+void ggp::Transform::MoveAbsolute(float x, float y, float z) { MoveAbsoluteVec(XMVectorSet(x, y, z, 0)); }
+void ggp::Transform::MoveAbsolute(DirectX::XMFLOAT3 offset) { MoveAbsoluteVec(XMLoadFloat3(&offset)); }
+void ggp::Transform::MoveAbsoluteLocal(float x, float y, float z) { MoveAbsoluteLocalVec(XMVectorSet(x, y, z, 0.f)); }
+void ggp::Transform::MoveAbsoluteLocal(DirectX::XMFLOAT3 offset) { MoveAbsoluteLocalVec(XMLoadFloat3(&offset)); }
+void ggp::Transform::Rotate(float pitch, float yaw, float roll) { RotateVec(XMVectorSet(pitch, yaw, roll, 0.f)); }
+void ggp::Transform::Rotate(DirectX::XMFLOAT3 rotation) { RotateVec(XMLoadFloat3(&rotation)); }
+void ggp::Transform::Scale(float x, float y, float z) { ScaleVec(XMVectorSet(x, y, z, 0)); }
+void ggp::Transform::Scale(DirectX::XMFLOAT3 scale) { ScaleVec(XMLoadFloat3(&scale)); }
+void ggp::Transform::MoveRelative(float x, float y, float z) { MoveRelativeVec(XMVectorSet(x, y, z, 0.f)); }
+void ggp::Transform::MoveRelative(XMFLOAT3 offset) { MoveRelativeVec(XMLoadFloat3(&offset)); }
 
 XMFLOAT3 ggp::Transform::GetForward() const
 {

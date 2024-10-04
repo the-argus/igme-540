@@ -15,4 +15,12 @@ namespace ggp::cb
 		DirectX::XMFLOAT4 color;
 		DirectX::XMFLOAT4X4 worldMatrix;
 	};
+
+	struct WVPAndColor
+	{
+		DirectX::XMFLOAT4 color;
+		DirectX::XMFLOAT4X4 worldMatrix;
+		DirectX::XMFLOAT4X4 viewMatrix;
+		DirectX::XMFLOAT4X4 projectionMatrix;
+	};
 }
