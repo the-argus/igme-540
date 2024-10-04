@@ -29,6 +29,7 @@ namespace ggp
 		Transform AddChild() noexcept;
 		void Destroy() noexcept;
 
+		// matrix calculation (requires some tree traversal unless cached)
 		const DirectX::XMFLOAT4X4* GetWorldMatrixPtr() noexcept;
 		const DirectX::XMFLOAT4X4* GetWorldInverseTransposeMatrixPtr() noexcept;
 		DirectX::XMFLOAT4X4 GetWorldMatrix();
@@ -49,6 +50,8 @@ namespace ggp
 		DirectX::XMFLOAT3 GetRight() const;
 		void MoveAbsolute(float x, float y, float z);
 		void MoveAbsolute(DirectX::XMFLOAT3 offset);
+		void MoveAbsoluteLocal(float x, float y, float z);
+		void MoveAbsoluteLocal(DirectX::XMFLOAT3 offset);
 		void MoveRelative(float x, float y, float z);
 		void MoveRelative(XMFLOAT3 offset);
 		void Rotate(float pitch, float yaw, float roll);
@@ -60,6 +63,13 @@ namespace ggp
 		inline void TH_VECTORCALL Scale(DirectX::FXMVECTOR scale) noexcept;
 		inline void TH_VECTORCALL Rotate(DirectX::FXMVECTOR eulerAngles) noexcept;
 		inline void TH_VECTORCALL MoveAbsolute(DirectX::FXMVECTOR offset) noexcept;
+		inline void TH_VECTORCALL MoveAbsoluteLocal(DirectX::FXMVECTOR offset) noexcept;
+
+		/// <summary>
+		/// Move the vector in the space of a child identity transform.
+		/// Moving { 0, 0, 1 } moves the transform in the direction it is pointing, etc
+		/// </summary>
+		/// <param name="offset">The amount to move by, in child space</param>
 		inline void TH_VECTORCALL MoveRelative(DirectX::FXMVECTOR offset) noexcept;
 
 		/// <summary>
@@ -153,21 +163,6 @@ namespace ggp
 		return internals::hierarchy->LoadScale(handle);
 	}
 
-	inline DirectX::XMVECTOR Transform::LoadForwardVector() const noexcept
-	{
-		return internals::hierarchy->LoadForwardVector(handle);
-	}
-
-	inline DirectX::XMVECTOR Transform::LoadRightVector() const noexcept
-	{
-		return internals::hierarchy->LoadRightVector(handle);
-	}
-
-	inline DirectX::XMVECTOR Transform::LoadUpVector() const noexcept
-	{
-		return internals::hierarchy->LoadUpVector(handle);
-	}
-
 	inline void TH_VECTORCALL Transform::StorePosition(DirectX::FXMVECTOR pos) noexcept
 	{
 		internals::hierarchy->StorePosition(handle, pos);
@@ -198,10 +193,46 @@ namespace ggp
 		internals::hierarchy->StoreLocalScale(handle, scale);
 	}
 
+	inline DirectX::XMVECTOR Transform::LoadForwardVector() const noexcept
+	{
+		using namespace DirectX;
+		XMVECTOR out;
+		XMVECTOR quat;
+		XMVECTOR scale;
+		LoadMatrixDecomposed(&out, &quat, &scale);
+		XMVectorSet(0, 0, 1, 0);
+		XMVector3Rotate(out, quat);
+		return out;
+	}
+
+	inline DirectX::XMVECTOR Transform::LoadRightVector() const noexcept
+	{	
+		using namespace DirectX;
+		XMVECTOR out;
+		XMVECTOR quat;
+		XMVECTOR scale;
+		LoadMatrixDecomposed(&out, &quat, &scale);
+		XMVectorSet(1, 0, 0, 0);
+		XMVector3Rotate(out, quat);
+		return out;
+	}
+
+	inline DirectX::XMVECTOR Transform::LoadUpVector() const noexcept
+	{
+		using namespace DirectX;
+		XMVECTOR out;
+		XMVECTOR quat;
+		XMVECTOR scale;
+		LoadMatrixDecomposed(&out, &quat, &scale);
+		XMVectorSet(0, 1, 0, 0);
+		XMVector3Rotate(out, quat);
+		return out;
+	}
+
 	inline void TH_VECTORCALL Transform::Scale(DirectX::FXMVECTOR scale) noexcept
 	{
 		using namespace DirectX;
-		internals::hierarchy->StoreLocalScale(handle, XMVectorMultiply(scale, internals::hierarchy->LoadLocalScale(handle)));
+		StoreLocalScale(XMVectorMultiply(scale, LoadLocalScale()));
 	}
 
 	inline void TH_VECTORCALL Transform::Rotate(DirectX::FXMVECTOR eulerAngles) noexcept
@@ -220,10 +251,27 @@ namespace ggp
 		SetRotation(QuatToEuler(q));
 	}
 
-	inline void TH_VECTORCALL Transform::MoveAbsolute(DirectX::FXMVECTOR offset) noexcept
+	inline void TH_VECTORCALL Transform::MoveAbsoluteLocal(DirectX::FXMVECTOR offset) noexcept
 	{
 		StoreLocalPosition(XMVectorAdd(offset, LoadLocalPosition()));
 	}
 
-	inline void TH_VECTORCALL MoveRelative(DirectX::FXMVECTOR offset) noexcept;
+	inline void TH_VECTORCALL Transform::MoveAbsolute(DirectX::FXMVECTOR offset) noexcept
+	{
+		// performing load, which traverses up parents, and then also a set, which traverses children to sets the dirty flag
+		StorePosition(XMVectorAdd(offset, LoadPosition()));
+	}
+
+	inline void TH_VECTORCALL Transform::MoveRelative(DirectX::FXMVECTOR offset) noexcept
+	{
+		using namespace DirectX;
+		XMVECTOR pos;
+		XMVECTOR rotated;
+		XMVECTOR scale;
+		LoadMatrixDecomposed(&pos, &rotated, &scale);
+		// since LoadMatrix gives the global rotation, we are rotating the global space offset into our local space
+		rotated = XMVector3Rotate(offset, rotated);
+		// rotated value already in global space, so it can be applied directly to our local position and it will still be global
+		MoveAbsoluteLocal(rotated);
+	}
 }
