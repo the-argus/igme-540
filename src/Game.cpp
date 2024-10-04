@@ -199,18 +199,18 @@ void Game::CreateEntities()
 	out2.GetTransform().ScaleVec(pointOne);
 	out3.GetTransform().ScaleVec(pointOne);
 
-	out1.GetTransform().MoveAbsolute({ 0.2f, 0.2f, 0.f });
-	out2.GetTransform().MoveAbsolute({ -0.2f, 0.0f, 0.1f });
-	out3.GetTransform().MoveAbsolute({ 0.0f, -0.3f, 0.05f });
+	out1.GetTransform().MoveAbsoluteLocal({ 0.2f, 0.2f, 0.f });
+	out2.GetTransform().MoveAbsoluteLocal({ -0.2f, 0.0f, 0.1f });
+	out3.GetTransform().MoveAbsoluteLocal({ 0.0f, -0.3f, 0.05f });
 
 	Mesh* drop = &m_alwaysLoadedMeshes["droplet"];
 	Entity droplet1(drop, out1.GetTransform().AddChild());
 	Entity droplet2(drop, out1.GetTransform().AddChild());
 	Entity droplet3(drop, out1.GetTransform().AddChild());
 
-	droplet1.GetTransform().MoveAbsolute({ 0.2f, 0.2f, 0.f });
-	droplet2.GetTransform().MoveAbsolute({ -0.2f, 0.0f, 0.1f });
-	droplet3.GetTransform().MoveAbsolute({ 0.0f, -0.3f, 0.05f });
+	droplet1.GetTransform().MoveAbsoluteLocal({ 0.2f, 0.2f, 0.f });
+	droplet2.GetTransform().MoveAbsoluteLocal({ -0.2f, 0.0f, 0.1f });
+	droplet3.GetTransform().MoveAbsoluteLocal({ 0.0f, -0.3f, 0.05f });
 
 	m_entities.push_back(root);
 	m_entities.push_back(out1);

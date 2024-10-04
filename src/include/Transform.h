@@ -262,10 +262,6 @@ namespace ggp
 		XMVECTOR pos = LoadPosition();
 		XMVECTOR expected = XMVectorAdd(offset, pos);
 		StorePosition(expected);
-#if defined(DEBUG) || defined(_DEBUG)
-		XMVECTOR actual = LoadPosition();
-		//gassert(XMComparisonAllTrue(XMVector3EqualR(actual, expected)));
-#endif
 	}
 
 	inline void TH_VECTORCALL Transform::MoveRelativeVec(DirectX::FXMVECTOR offset) noexcept
