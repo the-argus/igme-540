@@ -257,8 +257,12 @@ namespace ggp
 
 	inline void TH_VECTORCALL Transform::MoveAbsoluteVec(DirectX::FXMVECTOR offset) noexcept
 	{
+		using namespace DirectX;
 		// performing load, which traverses up parents, and then also a set, which traverses children to sets the dirty flag
-		StorePosition(DirectX::XMVectorAdd(offset, LoadPosition()));
+		XMVECTOR pos = LoadPosition();
+		XMVECTOR expected = XMVectorAdd(offset, pos);
+		StorePosition(expected);
+		XMVECTOR actual = LoadPosition();
 	}
 
 	inline void TH_VECTORCALL Transform::MoveRelativeVec(DirectX::FXMVECTOR offset) noexcept

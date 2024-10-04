@@ -15,6 +15,13 @@ namespace ggp
 	{
 	public:
 		Camera() = delete;
+
+		// copy/move unimplemented
+		Camera(const Camera&) = delete;
+		Camera& operator=(const Camera&) = delete;
+		Camera(Camera&&) = delete;
+		Camera& operator=(Camera&&) = delete;
+
 		struct Options
 		{
 			Projection projection = Projection::Perspective;

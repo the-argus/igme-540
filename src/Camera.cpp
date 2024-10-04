@@ -47,13 +47,14 @@ const DirectX::XMFLOAT4X4A* ggp::Camera::GetProjectionMatrix() const noexcept
 
 void ggp::Camera::UpdateProjectionMatrix(f32 aspectRatio, u32 width, u32 height) noexcept
 {
+	gassert(is_aligned_to_type(&m_projectionMatrix));
 	switch (m_projection)
 	{
 	case Projection::Perspective:
-		XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_near, m_far);
+		XMStoreFloat4x4A(&m_projectionMatrix, XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_near, m_far));
 		break;
 	case Projection::Orthographic:
-		XMMatrixOrthographicLH(f32(width), f32(height), m_near, m_far);
+		XMStoreFloat4x4A(&m_projectionMatrix, XMMatrixOrthographicLH(f32(width), f32(height), m_near, m_far));
 		break;
 	}
 }
@@ -87,6 +88,8 @@ void ggp::Camera::UpdateViewMatrix() noexcept
 
 void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 {
+	auto pos = m_transform.GetPosition();
+	printf("%f %f %f\n", pos.x, pos.y, pos.z);
 	// scroll to change speed
 	m_moveSpeed = std::clamp(m_moveSpeed + Input::GetMouseWheel(), 0.f, 100.f);
 
@@ -94,7 +97,11 @@ void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 	XMVECTOR direction = XMVectorSet(
 		f32(Input::KeyDown('A')) - f32(Input::KeyDown('D')), 0.f,
 		f32(Input::KeyDown('W')) - f32(Input::KeyDown('S')), 0.f);
-	m_transform.MoveRelativeVec(XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt)));
+	direction = XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt));
+
+	// only move if direction is non zero
+	if (XMVectorGetX(XMVector3LengthSq(direction)) > 0.0000000001f)
+		m_transform.MoveRelativeVec(direction);
 
 	direction = XMVectorSet(0.f, f32(Input::KeyDown(VK_SPACE)) - f32(Input::KeyDown(VK_SHIFT)), 0.f, 0.f);
 	m_transform.MoveAbsoluteVec(direction);

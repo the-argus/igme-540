@@ -157,22 +157,28 @@ namespace ggp
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreLocalPosition(Handle h, DirectX::FXMVECTOR pos) noexcept
 	{
+		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local position of null transform");
-		DirectX::XMStoreFloat3(&GetPtr(h)->localPosition, pos);
+		gassert(!XMVector3IsNaN(pos));
+		XMStoreFloat3(&GetPtr(h)->localPosition, pos);
 		MarkDirty(h._inner);
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreLocalEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
 	{
+		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
-		DirectX::XMStoreFloat3(&GetPtr(h)->localRotation, angles);
+		gassert(!XMVector3IsNaN(angles));
+		XMStoreFloat3(&GetPtr(h)->localRotation, angles);
 		MarkDirty(h._inner);
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreLocalScale(Handle h, DirectX::FXMVECTOR scale) noexcept
 	{
+		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
-		DirectX::XMStoreFloat3(&GetPtr(h)->localScale, scale);
+		gassert(!XMVector3IsNaN(scale));
+		XMStoreFloat3(&GetPtr(h)->localScale, scale);
 		MarkDirty(h._inner);
 	}
 
@@ -224,15 +230,33 @@ namespace ggp
 	inline void TH_VECTORCALL TransformHierarchy::StorePosition(Handle h, DirectX::FXMVECTOR pos) noexcept
 	{
 		using namespace DirectX;
-		DirectX::XMVECTOR currentPosition;
-		DirectX::XMVECTOR quat;
-		DirectX::XMVECTOR scale;
-		LoadMatrixDecomposed(h, &currentPosition, &quat, &scale);
-		XMVECTOR diff = XMVectorSubtract(pos, currentPosition);
-		// remove our rotation from the position diff to get local space diff
-		diff = XMVector3Rotate(diff, XMQuaternionInverse(quat));
-		// apply local diff
-		StoreLocalPosition(h, XMVectorAdd(LoadLocalPosition(h), diff));
+
+		auto* trans = GetPtr(h);
+
+			XMVECTOR translation;
+			XMVECTOR quat;
+			XMVECTOR scale;
+			LoadMatrixDecomposed(h, &translation, &quat, &scale);
+	
+			// divide out our local scale from scale
+			scale = XMVectorDivide(scale, XMLoadFloat3(&trans->localScale));
+
+			// difference from our global position to target global position
+			XMVECTOR diff = XMVectorSubtract(pos, translation);
+
+			XMVECTOR localRot = XMLoadFloat3(&trans->localRotation);
+			localRot = XMQuaternionRotationRollPitchYawFromVector(localRot);
+			// "subtract" our local rotation from our global rotation. this
+			// is because our LoadMatrix functions load the transform that
+			// describes the space our *children* are in, not us
+			quat = XMQuaternionMultiply(XMQuaternionInverse(localRot), quat);
+
+
+			// remove our parent's rotation from the position diff to get local space diff
+			diff = XMVector3Rotate(diff, XMQuaternionInverse(quat));
+
+			// apply local diff
+			StoreLocalPosition(h, XMVectorAdd(LoadLocalPosition(h), diff));
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
