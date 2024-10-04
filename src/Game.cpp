@@ -43,7 +43,11 @@ void Game::Initialize()
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
 	CreateEntities();
-	m_camera = std::make_shared<Camera>(Camera::Options{ .aspectRatio = Window::AspectRatio() });
+	m_camera = std::make_shared<Camera>(Camera::Options{
+		.aspectRatio = Window::AspectRatio(),
+		.initialGlobalPosition = { 0, 0, -1 },
+		.initialTargetGlobalPosition = { 0, 0, 0 },
+	});
 
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -77,12 +81,8 @@ void Game::Initialize()
 		};
 		Graphics::Device->CreateBuffer(&desc, nullptr, m_constantBuffer.GetAddressOf());
 
-		// initial transform and color. not mapped / put into gpu until draw
-		m_constantBufferCPUSide = {
-			.color = { 1.0f, 0.5f, 0.5f, 1.0f },
-		};
-		// initialize to identity, why not
-		XMStoreFloat4x4(&m_constantBufferCPUSide.worldMatrix, XMMatrixIdentity());
+		// initial color. not mapped / put into gpu until draw
+		m_constantBufferCPUSide.color = { 1.0f, 0.5f, 0.5f, 1.0f };
 
 		// bind cb and keep binding for the whole program
 		Graphics::Context->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
@@ -463,16 +463,19 @@ void Game::Draw(float deltaTime, float totalTime)
 
 	for (ggp::Entity& entity : m_entities)
 	{
-		m_constantBufferCPUSide.worldMatrix = entity.GetTransform().GetWorldMatrix();
 		// send cb to shaders
 		{
 			D3D11_MAPPED_SUBRESOURCE cbMapped{};
 			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
 
 			((cb::WVPAndColor*)cbMapped.pData)->worldMatrix = *entity.GetTransform().GetWorldMatrixPtr();
+			// XMStoreFloat4x4(&((cb::WVPAndColor*)cbMapped.pData)->viewMatrix, XMMatrixIdentity());
+			// XMStoreFloat4x4(&((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix, XMMatrixIdentity());
 			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *m_camera->GetViewMatrix();
 			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *m_camera->GetProjectionMatrix();
 			((cb::WVPAndColor*)cbMapped.pData)->color = m_constantBufferCPUSide.color;
+
+			// memcpy(cbMapped.pData, &m_constantBufferCPUSide, sizeof(cb::TransformAndColor));
 
 			Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
 		}

@@ -14,33 +14,36 @@ ggp::Camera::Camera(const Options& options) noexcept
 	m_far(options.farPlaneDistance)
 {
 	// initialize view matrix
+	/*
 	XMVECTOR initialPos = XMLoadFloat3(&options.initialGlobalPosition);
 	XMMATRIX viewMatrix = XMMatrixLookAtLH(
 		initialPos,
 		XMLoadFloat3(&options.initialTargetGlobalPosition),
 		XMVectorSet(0.f, 1.f, 0.f, 0.f));
-	XMStoreFloat4x4A(&m_viewMatrix, viewMatrix);
+	XMStoreFloat4x4(&m_viewMatrix, viewMatrix);
 	XMVECTOR rotation;
 	XMVECTOR unusedScale;
 	// extract rotation/direction from the viewmatrix instead of calculating it ourselves
 	XMMatrixDecompose(&unusedScale, &rotation, &initialPos, viewMatrix);
 	XMFLOAT4 q;
 	XMStoreFloat4(&q, rotation);
+	*/
 
 	// initialize transform
-	m_transform.SetRotation(QuatToEuler(q));
-	m_transform.StorePosition(initialPos);
+	// m_transform.SetRotation(QuatToEuler(q));
+	m_transform.SetRotation({ 0, 0, 0 });
+	m_transform.SetPosition({ 0, 0, -1 });
 
 	// initialize projection matrix
 	UpdateProjectionMatrix(options.aspectRatio, options.width, options.height);
 }
 
-const DirectX::XMFLOAT4X4A* ggp::Camera::GetViewMatrix() const noexcept
+const DirectX::XMFLOAT4X4* ggp::Camera::GetViewMatrix() const noexcept
 {
 	return &m_viewMatrix;
 }
 
-const DirectX::XMFLOAT4X4A* ggp::Camera::GetProjectionMatrix() const noexcept
+const DirectX::XMFLOAT4X4* ggp::Camera::GetProjectionMatrix() const noexcept
 {
 	return &m_projectionMatrix;
 }
@@ -51,18 +54,16 @@ void ggp::Camera::UpdateProjectionMatrix(f32 aspectRatio, u32 width, u32 height)
 	switch (m_projection)
 	{
 	case Projection::Perspective:
-		XMStoreFloat4x4A(&m_projectionMatrix, XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_near, m_far));
+		XMStoreFloat4x4(&m_projectionMatrix, XMMatrixPerspectiveFovLH(m_fov, aspectRatio, m_near, m_far));
 		break;
 	case Projection::Orthographic:
-		XMStoreFloat4x4A(&m_projectionMatrix, XMMatrixOrthographicLH(f32(width), f32(height), m_near, m_far));
+		XMStoreFloat4x4(&m_projectionMatrix, XMMatrixOrthographicLH(f32(width), f32(height), m_near, m_far));
 		break;
 	}
 }
 
 void ggp::Camera::Update(f32 dt) noexcept
 {
-	XMFLOAT3 pos = m_transform.GetPosition();
-
 	if (Input::MouseRightDown())
 	{
 		// orbit around a point 16 units in front of our face
@@ -72,7 +73,7 @@ void ggp::Camera::Update(f32 dt) noexcept
 	}
 	else
 	{
-		UpdateNoClip(dt);
+		//UpdateNoClip(dt);
 	}
 
 	UpdateViewMatrix();
@@ -82,8 +83,12 @@ void ggp::Camera::UpdateViewMatrix() noexcept
 {
 	XMVECTOR pos = m_transform.LoadPosition();
 	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	XMFLOAT3 forward = m_transform.GetForward();
+	XMFLOAT3 rPos = m_transform.GetPosition();
+	printf("using forward vec %f %f %f\n", forward.x, forward.y, forward.z);
+	printf("camera position %f %f %f\n", rPos.x, rPos.y, rPos.z);
 	XMMATRIX viewMatrix = XMMatrixLookToLH(pos, m_transform.LoadForwardVector(), up);
-	XMStoreFloat4x4A(&m_viewMatrix, viewMatrix);
+	XMStoreFloat4x4(&m_viewMatrix, viewMatrix);
 }
 
 void ggp::Camera::UpdateNoClip(f32 dt) noexcept
@@ -98,21 +103,18 @@ void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 		f32(Input::KeyDown('A')) - f32(Input::KeyDown('D')), 0.f,
 		f32(Input::KeyDown('W')) - f32(Input::KeyDown('S')), 0.f);
 	direction = XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt));
-
-	// only move if direction is non zero
-	if (XMVectorGetX(XMVector3LengthSq(direction)) > 0.0000000001f)
-		m_transform.MoveRelativeVec(direction);
+	m_transform.MoveRelativeVec(direction);
 
 	direction = XMVectorSet(0.f, f32(Input::KeyDown(VK_SPACE)) - f32(Input::KeyDown(VK_SHIFT)), 0.f, 0.f);
 	direction = XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt));
-	m_transform.MoveAbsoluteVec(direction);
+	m_transform.MoveAbsoluteLocalVec(direction);
 
 	// rotate camera with mouse
 	m_angles.x += Input::GetMouseYDelta() * m_sens;
 	m_angles.y += Input::GetMouseXDelta() * m_sens;
 	m_angles.x = std::clamp(m_angles.x, DegToRad(-89.f), DegToRad(89.f));
 	m_angles.y = fmodf(m_angles.y, XM_2PI);
-	m_transform.SetRotation({ m_angles.x, m_angles.y, 0.f });
+	//m_transform.SetRotation({ m_angles.x, m_angles.y, 0.f });
 }
 
 void __vectorcall ggp::Camera::UpdateOrbital(f32 dt, DirectX::FXMVECTOR orbitCenter) noexcept

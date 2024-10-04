@@ -38,8 +38,8 @@ namespace ggp
 
 		Camera(const Options&) noexcept;
 
-		const DirectX::XMFLOAT4X4A* GetViewMatrix() const noexcept;
-		const DirectX::XMFLOAT4X4A* GetProjectionMatrix() const noexcept;
+		const DirectX::XMFLOAT4X4* GetViewMatrix() const noexcept;
+		const DirectX::XMFLOAT4X4* GetProjectionMatrix() const noexcept;
 
 		void UpdateProjectionMatrix(f32 aspectRatio, u32 width, u32 height) noexcept;
 		void Update(f32 dt) noexcept;
@@ -51,8 +51,8 @@ namespace ggp
 		void UpdateNoClip(f32 dt) noexcept;
 		void __vectorcall UpdateOrbital(f32 dt, DirectX::FXMVECTOR orbitCenter) noexcept;
 
-		DirectX::XMFLOAT4X4A m_viewMatrix;
-		DirectX::XMFLOAT4X4A m_projectionMatrix;
+		DirectX::XMFLOAT4X4 m_viewMatrix;
+		DirectX::XMFLOAT4X4 m_projectionMatrix;
 		Transform m_transform = Transform::Create();
 		Projection m_projection = Projection::Perspective;
 		f32 m_sens;
