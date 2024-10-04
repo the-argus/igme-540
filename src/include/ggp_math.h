@@ -4,6 +4,11 @@
 
 namespace ggp
 {
+	inline constexpr float DegToRad(float deg)
+	{
+		return (XM_PI / 180.f) * deg;
+	}
+
 	inline DirectX::XMFLOAT3 QuatToEuler(const DirectX::XMFLOAT4& q) noexcept
 	{
 		float xx = q.x * q.x;
