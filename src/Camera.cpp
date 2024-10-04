@@ -104,7 +104,8 @@ void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 		m_transform.MoveRelativeVec(direction);
 
 	direction = XMVectorSet(0.f, f32(Input::KeyDown(VK_SPACE)) - f32(Input::KeyDown(VK_SHIFT)), 0.f, 0.f);
-	m_transform.MoveAbsoluteVec(direction);
+	direction = XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt));
+	m_transform.MoveAbsoluteLocalVec(direction);
 
 	// rotate camera with mouse
 	m_angles.x += Input::GetMouseYDelta() * m_sens;

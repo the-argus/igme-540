@@ -232,31 +232,21 @@ namespace ggp
 		using namespace DirectX;
 
 		auto* trans = GetPtr(h);
+		auto* worldStorage = GetWorldMatrixPtr(h);
+		XMMATRIX world = XMLoadFloat4x4(worldStorage);
 
-			XMVECTOR translation;
-			XMVECTOR quat;
-			XMVECTOR scale;
-			LoadMatrixDecomposed(h, &translation, &quat, &scale);
-	
-			// divide out our local scale from scale
-			scale = XMVectorDivide(scale, XMLoadFloat3(&trans->localScale));
+		// get our contribution to world space
+		XMMATRIX local = XMMatrixMultiply(
+			XMMatrixMultiply(
+				XMMatrixScalingFromVector(XMLoadFloat3(&trans->localScale)),
+				XMMatrixRotationRollPitchYawFromVector(XMLoadFloat3(&trans->localRotation))),
+			XMMatrixTranslationFromVector(XMLoadFloat3(&trans->localPosition)));
+		// revert our contribution from world, getting the space that our position is in
+		world = XMMatrixMultiply(XMMatrixInverse(nullptr, local), world);
 
-			// difference from our global position to target global position
-			XMVECTOR diff = XMVectorSubtract(pos, translation);
-
-			XMVECTOR localRot = XMLoadFloat3(&trans->localRotation);
-			localRot = XMQuaternionRotationRollPitchYawFromVector(localRot);
-			// "subtract" our local rotation from our global rotation. this
-			// is because our LoadMatrix functions load the transform that
-			// describes the space our *children* are in, not us
-			quat = XMQuaternionMultiply(XMQuaternionInverse(localRot), quat);
-
-
-			// remove our parent's rotation from the position diff to get local space diff
-			diff = XMVector3Rotate(diff, XMQuaternionInverse(quat));
-
-			// apply local diff
-			StoreLocalPosition(h, XMVectorAdd(LoadLocalPosition(h), diff));
+		// translate the global position into this parent space
+		XMVECTOR localPos = XMVector3Transform(pos, world);
+		StoreLocalPosition(h, localPos);
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreEulerAngles(Handle h, DirectX::FXMVECTOR angles) noexcept
