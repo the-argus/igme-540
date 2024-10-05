@@ -28,12 +28,12 @@ namespace ggp
 			u32 width;
 			u32 height;
 			f32 aspectRatio;
-			f32 mouseSensitivity = 1.f;
+			f32 mouseSensitivity = 0.01f;
 			f32 fovDegrees = 90.f;
 			f32 nearPlaneDistance = 0.1f;
 			f32 farPlaneDistance = 1000.f;
 			DirectX::XMFLOAT3 initialGlobalPosition = { 0.f, 0.f, 0.f };
-			DirectX::XMFLOAT3 initialTargetGlobalPosition = { 1.f, 0.f, 0.f };
+			DirectX::XMFLOAT2 initialRotation = { DirectX::XM_PI/2.f, 0.f };
 		};
 
 		Camera(const Options&) noexcept;

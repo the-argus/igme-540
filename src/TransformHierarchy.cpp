@@ -36,7 +36,7 @@ void ggp::TransformHierarchy::Destroy(Handle handle) noexcept
 		if (siblingIter == handle._inner)
 		{
 			parent->childHandle = trans->nextSiblingHandle;
-		} 
+		}
 		else
 		{
 			// if we are not first child, loop until we get to somebody whose next sibling is us
@@ -72,7 +72,7 @@ void ggp::TransformHierarchy::Destroy(Handle handle) noexcept
 		childIter = child->nextSiblingHandle;
 		// orphan no longer has connection to siblings
 		child->nextSiblingHandle = -1;
-		
+
 		// convert to eulers, requires going in and out of simd registers :(
 		XMFLOAT4 quat;
 		XMStoreFloat4(&quat, globalRotation);
@@ -241,7 +241,7 @@ DirectX::XMFLOAT3 ggp::TransformHierarchy::GetLocalPosition(Handle h) const
 	return GetPtr(h)->localPosition;
 }
 
-DirectX::XMFLOAT3  ggp::TransformHierarchy::GetLocalRotation(Handle h) const
+DirectX::XMFLOAT3  ggp::TransformHierarchy::GetLocalEulerAngles(Handle h) const
 {
 	return GetPtr(h)->localRotation;
 }
@@ -257,7 +257,7 @@ void  ggp::TransformHierarchy::SetLocalPosition(Handle h, DirectX::XMFLOAT3 posi
 	MarkDirty(h._inner);
 }
 
-void  ggp::TransformHierarchy::SetLocalRotation(Handle h, DirectX::XMFLOAT3 rotation)
+void  ggp::TransformHierarchy::SetLocalEulerAngles(Handle h, DirectX::XMFLOAT3 rotation)
 {
 	GetPtr(h)->localRotation = rotation;
 	MarkDirty(h._inner);
@@ -267,4 +267,40 @@ void  ggp::TransformHierarchy::SetLocalScale(Handle h, DirectX::XMFLOAT3 scale)
 {
 	GetPtr(h)->localScale = scale;
 	MarkDirty(h._inner);
+}
+
+XMFLOAT3 ggp::TransformHierarchy::GetPosition(Handle h) const
+{
+	XMFLOAT3 out;
+	XMStoreFloat3(&out, LoadPosition(h));
+	return out;
+}
+
+XMFLOAT3 ggp::TransformHierarchy::GetEulerAngles(Handle h) const
+{
+	XMFLOAT3 out;
+	XMStoreFloat3(&out, LoadEulerAngles(h));
+	return out;
+}
+
+XMFLOAT3 ggp::TransformHierarchy::GetScale(Handle h) const
+{
+	XMFLOAT3 out;
+	XMStoreFloat3(&out, LoadScale(h));
+	return out;
+}
+
+void ggp::TransformHierarchy::SetPosition(Handle h, XMFLOAT3 position)
+{
+	StorePosition(h, XMLoadFloat3(&position));
+}
+
+void ggp::TransformHierarchy::SetEulerAngles(Handle h, XMFLOAT3 rotation)
+{
+	StoreEulerAngles(h, XMLoadFloat3(&rotation));
+}
+
+void ggp::TransformHierarchy::SetScale(Handle h, XMFLOAT3 scale)
+{
+	StoreScale(h, XMLoadFloat3(&scale));
 }

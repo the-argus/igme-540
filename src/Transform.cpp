@@ -65,15 +65,24 @@ const XMFLOAT4X4* ggp::Transform::GetWorldInverseTransposeMatrixPtr() noexcept
 // trivial getters and setters
 DirectX::XMFLOAT4X4 ggp::Transform::GetWorldMatrix() { return *GetWorldMatrixPtr(); }
 DirectX::XMFLOAT4X4 ggp::Transform::GetWorldInverseTransposeMatrix() { return *GetWorldInverseTransposeMatrixPtr(); }
+void ggp::Transform::SetLocalPosition(float x, float y, float z) { SetLocalPosition({ x, y, z }); }
+void ggp::Transform::SetLocalPosition(DirectX::XMFLOAT3 position) { hierarchy->SetLocalPosition(handle, position); };
+void ggp::Transform::SetLocalEulerAngles(float x, float y, float z) { SetLocalEulerAngles({x, y, z}); }
+void ggp::Transform::SetLocalEulerAngles(DirectX::XMFLOAT3 position) { hierarchy->SetLocalEulerAngles(handle, position); }
+void ggp::Transform::SetLocalScale(float x, float y, float z) { SetLocalScale({x, y, z}); }
+void ggp::Transform::SetLocalScale(DirectX::XMFLOAT3 position) { hierarchy->SetLocalScale(handle, position); }
 void ggp::Transform::SetPosition(float x, float y, float z) { SetPosition({x, y, z}); }
-void ggp::Transform::SetPosition(DirectX::XMFLOAT3 position) { hierarchy->SetLocalPosition(handle, position); }
-void ggp::Transform::SetRotation(float pitch, float yaw, float roll) { SetRotation({ pitch, yaw, roll }); }
-void ggp::Transform::SetRotation(DirectX::XMFLOAT3 rotation) { hierarchy->SetLocalRotation(handle, rotation); }
+void ggp::Transform::SetPosition(DirectX::XMFLOAT3 position) { hierarchy->SetPosition(handle, position); }
+void ggp::Transform::SetEulerAngles(float pitch, float yaw, float roll) { SetEulerAngles({ pitch, yaw, roll }); }
+void ggp::Transform::SetEulerAngles(DirectX::XMFLOAT3 rotation) { hierarchy->SetEulerAngles(handle, rotation); }
 void ggp::Transform::SetScale(float x, float y, float z) { SetScale({ x, y, z }); }
-void ggp::Transform::SetScale(DirectX::XMFLOAT3 scale) { hierarchy->SetLocalScale(handle, scale); }
-DirectX::XMFLOAT3 ggp::Transform::GetPosition() const { return hierarchy->GetLocalPosition(handle); }
-DirectX::XMFLOAT3 ggp::Transform::GetPitchYawRoll() const { return hierarchy->GetLocalRotation(handle); }
-DirectX::XMFLOAT3 ggp::Transform::GetScale() const { return hierarchy->GetLocalScale(handle); }
+void ggp::Transform::SetScale(DirectX::XMFLOAT3 scale) { hierarchy->SetScale(handle, scale); }
+DirectX::XMFLOAT3 ggp::Transform::GetPosition() const { return hierarchy->GetPosition(handle); }
+DirectX::XMFLOAT3 ggp::Transform::GetEulerAngles() const { return hierarchy->GetEulerAngles(handle); }
+DirectX::XMFLOAT3 ggp::Transform::GetScale() const { return hierarchy->GetScale(handle); }
+XMFLOAT3 ggp::Transform::GetLocalPosition() const { return hierarchy->GetLocalPosition(handle); }
+XMFLOAT3 ggp::Transform::GetLocalEulerAngles() const { return hierarchy->GetLocalEulerAngles(handle); }
+XMFLOAT3 ggp::Transform::GetLocalScale() const { return hierarchy->GetLocalScale(handle); }
 
 // transformers
 void ggp::Transform::MoveAbsolute(float x, float y, float z) { MoveAbsoluteVec(XMVectorSet(x, y, z, 0)); }
@@ -90,7 +99,7 @@ void ggp::Transform::MoveRelative(XMFLOAT3 offset) { MoveRelativeVec(XMLoadFloat
 XMFLOAT3 ggp::Transform::GetForward() const
 {
 	XMFLOAT3 out;
-	XMVECTOR forward = LoadForwardVector();
+	XMVECTOR forward = LoadForward();
 	XMStoreFloat3(&out, forward);
 	return out;
 }
@@ -98,7 +107,7 @@ XMFLOAT3 ggp::Transform::GetForward() const
 XMFLOAT3 ggp::Transform::GetUp() const
 {
 	XMFLOAT3 out;
-	XMVECTOR forward = LoadUpVector();
+	XMVECTOR forward = LoadUp();
 	XMStoreFloat3(&out, forward);
 	return out;
 }
@@ -106,7 +115,7 @@ XMFLOAT3 ggp::Transform::GetUp() const
 XMFLOAT3 ggp::Transform::GetRight() const
 {
 	XMFLOAT3 out;
-	XMVECTOR forward = LoadRightVector();
+	XMVECTOR forward = LoadRight();
 	XMStoreFloat3(&out, forward);
 	return out;
 }

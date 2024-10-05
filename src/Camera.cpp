@@ -13,28 +13,10 @@ ggp::Camera::Camera(const Options& options) noexcept
 	m_near(options.nearPlaneDistance),
 	m_far(options.farPlaneDistance)
 {
-	// initialize view matrix
-	/*
-	XMVECTOR initialPos = XMLoadFloat3(&options.initialGlobalPosition);
-	XMMATRIX viewMatrix = XMMatrixLookAtLH(
-		initialPos,
-		XMLoadFloat3(&options.initialTargetGlobalPosition),
-		XMVectorSet(0.f, 1.f, 0.f, 0.f));
-	XMStoreFloat4x4(&m_viewMatrix, viewMatrix);
-	XMVECTOR rotation;
-	XMVECTOR unusedScale;
-	// extract rotation/direction from the viewmatrix instead of calculating it ourselves
-	XMMatrixDecompose(&unusedScale, &rotation, &initialPos, viewMatrix);
-	XMFLOAT4 q;
-	XMStoreFloat4(&q, rotation);
-	*/
-
-	// initialize transform
-	// m_transform.SetRotation(QuatToEuler(q));
-	m_transform.SetRotation({ 0, 0, 0 });
-	m_transform.SetPosition({ 0, 0, -1 });
-
-	// initialize projection matrix
+	m_angles.x = std::clamp(options.initialRotation.x, -DegToRad(89), DegToRad(89));
+	m_angles.y = fmodf(options.initialRotation.y, XM_2PI);
+	m_transform.SetPosition(options.initialGlobalPosition);
+	XMStoreFloat4x4(&m_viewMatrix, XMMatrixIdentity());
 	UpdateProjectionMatrix(options.aspectRatio, options.width, options.height);
 }
 
@@ -67,13 +49,13 @@ void ggp::Camera::Update(f32 dt) noexcept
 	if (Input::MouseRightDown())
 	{
 		// orbit around a point 16 units in front of our face
-		XMVECTOR delta = m_transform.LoadForwardVector();
+		XMVECTOR delta = m_transform.LoadForward();
 		delta = XMVectorMultiply(VectorSplat(16), delta);
 		UpdateOrbital(dt, XMVectorAdd(m_transform.LoadPosition(), delta));
 	}
 	else
 	{
-		//UpdateNoClip(dt);
+		UpdateNoClip(dt);
 	}
 
 	UpdateViewMatrix();
@@ -82,25 +64,18 @@ void ggp::Camera::Update(f32 dt) noexcept
 void ggp::Camera::UpdateViewMatrix() noexcept
 {
 	XMVECTOR pos = m_transform.LoadPosition();
-	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
-	XMFLOAT3 forward = m_transform.GetForward();
-	XMFLOAT3 rPos = m_transform.GetPosition();
-	printf("using forward vec %f %f %f\n", forward.x, forward.y, forward.z);
-	printf("camera position %f %f %f\n", rPos.x, rPos.y, rPos.z);
-	XMMATRIX viewMatrix = XMMatrixLookToLH(pos, m_transform.LoadForwardVector(), up);
-	XMStoreFloat4x4(&m_viewMatrix, viewMatrix);
+	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 1.f);
+	XMStoreFloat4x4(&m_viewMatrix, XMMatrixLookToLH(pos, m_transform.LoadForward(), up));
 }
 
 void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 {
-	auto pos = m_transform.GetPosition();
-	printf("%f %f %f\n", pos.x, pos.y, pos.z);
 	// scroll to change speed
 	m_moveSpeed = std::clamp(m_moveSpeed + Input::GetMouseWheel(), 0.f, 100.f);
 
 	// move with WASD
 	XMVECTOR direction = XMVectorSet(
-		f32(Input::KeyDown('A')) - f32(Input::KeyDown('D')), 0.f,
+		f32(Input::KeyDown('D')) - f32(Input::KeyDown('A')), 0.f,
 		f32(Input::KeyDown('W')) - f32(Input::KeyDown('S')), 0.f);
 	direction = XMVectorMultiply(direction, VectorSplat(m_moveSpeed * dt));
 	m_transform.MoveRelativeVec(direction);
@@ -114,7 +89,7 @@ void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 	m_angles.y += Input::GetMouseXDelta() * m_sens;
 	m_angles.x = std::clamp(m_angles.x, DegToRad(-89.f), DegToRad(89.f));
 	m_angles.y = fmodf(m_angles.y, XM_2PI);
-	//m_transform.SetRotation({ m_angles.x, m_angles.y, 0.f });
+	m_transform.SetEulerAngles({ m_angles.x, m_angles.y, 0.f });
 }
 
 void __vectorcall ggp::Camera::UpdateOrbital(f32 dt, DirectX::FXMVECTOR orbitCenter) noexcept

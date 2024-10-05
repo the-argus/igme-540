@@ -46,7 +46,9 @@ void Game::Initialize()
 	m_camera = std::make_shared<Camera>(Camera::Options{
 		.aspectRatio = Window::AspectRatio(),
 		.initialGlobalPosition = { 0, 0, -1 },
-		.initialTargetGlobalPosition = { 0, 0, 0 },
+			// NOTE: horrible trial and error to get this :(
+			// couldnt get reverse-engineering it from the matrix returned by LookAt to work
+		.initialRotation = { -DegToRad(45), DegToRad(90)},
 	});
 
 	// Set initial graphics API state
@@ -313,7 +315,7 @@ static void SpinRecursive(float delta, float totalTime, Transform t, int depth =
 		SpinRecursive(delta, totalTime, s.value(), depth, index + 1);
 	}
 
-	t.SetPosition({ .0f + (index / 3.f), .0f + (0.3f * sin(totalTime + depth + index)), 0.f});
+	t.SetPosition({ .0f + (index / 3.f), .0f + (0.3f * sin(totalTime + depth + index)), 0.1f * (index + depth)});
 	float scale = ((sinf(totalTime) + 1) * 0.25f) + 0.5f;
 	t.SetScale({ scale, scale, 1.0f});
 	t.Rotate({ 0.f, 0.f, delta });
@@ -341,7 +343,7 @@ void Game::Update(float deltaTime, float totalTime)
 	if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
-		SpinRecursive(deltaTime, totalTime, root);
+		SpinRecursive(deltaTime / 50.f, totalTime / 50.f, root);
 	}
 
 	m_camera->Update(deltaTime);
@@ -414,9 +416,9 @@ void Game::BuildUI() noexcept
 					entity.GetTransform().SetPosition(pos);
 				}
 
-				pos = entity.GetTransform().GetPitchYawRoll();
+				pos = entity.GetTransform().GetEulerAngles();
 				if (ImGui::DragFloat3("Rotation (Radians)", &pos.x, 0.01f, -1.f, 1.f)) {
-					entity.GetTransform().SetRotation(pos);
+					entity.GetTransform().SetEulerAngles(pos);
 				}
 
 				pos = entity.GetTransform().GetScale();
@@ -469,8 +471,6 @@ void Game::Draw(float deltaTime, float totalTime)
 			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
 
 			((cb::WVPAndColor*)cbMapped.pData)->worldMatrix = *entity.GetTransform().GetWorldMatrixPtr();
-			// XMStoreFloat4x4(&((cb::WVPAndColor*)cbMapped.pData)->viewMatrix, XMMatrixIdentity());
-			// XMStoreFloat4x4(&((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix, XMMatrixIdentity());
 			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *m_camera->GetViewMatrix();
 			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *m_camera->GetProjectionMatrix();
 			((cb::WVPAndColor*)cbMapped.pData)->color = m_constantBufferCPUSide.color;

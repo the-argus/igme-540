@@ -44,29 +44,6 @@ namespace ggp
 		Handle AddChild(Handle) noexcept;
 		void Destroy(Handle) noexcept;
 
-		// getters- always okay to call these because they are entirely local to this
-		// transform and have nothing to do with the heirarchy
-		inline DirectX::XMVECTOR LoadLocalPosition(Handle) const noexcept;
-		inline DirectX::XMVECTOR LoadLocalEulerAngles(Handle) const noexcept;
-		inline DirectX::XMVECTOR LoadLocalScale(Handle) const noexcept;
-		// getters from assignment 5, although "Local" has been added to function names
-		DirectX::XMFLOAT3 GetLocalPosition(Handle) const;
-		DirectX::XMFLOAT3 GetLocalRotation(Handle) const;
-		DirectX::XMFLOAT3 GetLocalScale(Handle) const;
-		// setters from assignment 5, "Local" added
-		void SetLocalPosition(Handle, DirectX::XMFLOAT3 position);
-		void SetLocalRotation(Handle, DirectX::XMFLOAT3 rotation);
-		void SetLocalScale(Handle, DirectX::XMFLOAT3 scale);
-
-		// getters- these call into the transform hierarchy and require updates
-
-		/// <summary>
-		/// Get a pointer to the calculated world matrix for this transform.
-		/// This does not load into a XMMATRIX because it is intended for
-		/// memcpy into gpu mapped buffer
-		/// </summary>
-		/// <param name="">The handle pointing to the transform to load.</param>
-		/// <returns>A pointer to the calculated matrix. Using this pointer after other operations have been performed on the hierarchy is undefined.</returns>
 		const DirectX::XMFLOAT4X4* GetWorldMatrixPtr(Handle) const noexcept;
 		const DirectX::XMFLOAT4X4* GetWorldInverseTransposeMatrixPtr(Handle) const noexcept;
 
@@ -75,17 +52,33 @@ namespace ggp
 			DirectX::XMVECTOR* outPos,
 			DirectX::XMVECTOR* outQuat,
 			DirectX::XMVECTOR* outScale) const noexcept;
-		inline DirectX::XMVECTOR LoadPosition(Handle) const noexcept;
-		inline DirectX::XMVECTOR LoadEulerAngles(Handle) const noexcept;
-		inline DirectX::XMVECTOR LoadScale(Handle) const noexcept;
 
-		// setters- cause updates in the transform hierarchy
+		DirectX::XMFLOAT3 GetPosition(Handle) const;
+		inline DirectX::XMVECTOR LoadPosition(Handle) const noexcept;
+		DirectX::XMFLOAT3 GetEulerAngles(Handle) const;
+		inline DirectX::XMVECTOR LoadEulerAngles(Handle) const noexcept;
+		DirectX::XMFLOAT3 GetScale(Handle) const;
+		inline DirectX::XMVECTOR LoadScale(Handle) const noexcept;
+		DirectX::XMFLOAT3 GetLocalPosition(Handle) const;
+		inline DirectX::XMVECTOR LoadLocalPosition(Handle) const noexcept;
+		DirectX::XMFLOAT3 GetLocalEulerAngles(Handle) const;
+		inline DirectX::XMVECTOR LoadLocalEulerAngles(Handle) const noexcept;
+		DirectX::XMFLOAT3 GetLocalScale(Handle) const;
+		inline DirectX::XMVECTOR LoadLocalScale(Handle) const noexcept;
+
+		void SetPosition(Handle, DirectX::XMFLOAT3 position);
 		inline void TH_VECTORCALL StorePosition(Handle, DirectX::FXMVECTOR pos) noexcept;
-		inline void TH_VECTORCALL StoreEulerAngles(Handle, DirectX::FXMVECTOR angles) noexcept;
+		void SetEulerAngles(Handle, DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL StoreEulerAngles(Handle, DirectX::FXMVECTOR rotation) noexcept;
+		void SetScale(Handle, DirectX::XMFLOAT3 scale);
 		inline void TH_VECTORCALL StoreScale(Handle, DirectX::FXMVECTOR scale) noexcept;
+		void SetLocalPosition(Handle, DirectX::XMFLOAT3 position);
 		inline void TH_VECTORCALL StoreLocalPosition(Handle, DirectX::FXMVECTOR pos) noexcept;
+		void SetLocalEulerAngles(Handle, DirectX::XMFLOAT3 rotation);
 		inline void TH_VECTORCALL StoreLocalEulerAngles(Handle, DirectX::FXMVECTOR angles) noexcept;
+		void SetLocalScale(Handle, DirectX::XMFLOAT3 scale);
 		inline void TH_VECTORCALL StoreLocalScale(Handle, DirectX::FXMVECTOR scale) noexcept;
+
 
 	private:
 		struct InternalTransform
@@ -266,7 +259,7 @@ namespace ggp
 
 		XMFLOAT4 quaternionForm;
 		XMStoreFloat4(&quaternionForm, targetQuat);
-		SetLocalRotation(h, QuatToEuler(quaternionForm));
+		SetLocalEulerAngles(h, QuatToEuler(quaternionForm));
 	}
 
 	inline void TH_VECTORCALL TransformHierarchy::StoreScale(Handle h, DirectX::FXMVECTOR scale) noexcept

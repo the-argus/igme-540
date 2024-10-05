@@ -34,43 +34,63 @@ namespace ggp
 		const DirectX::XMFLOAT4X4* GetWorldInverseTransposeMatrixPtr() noexcept;
 		DirectX::XMFLOAT4X4 GetWorldMatrix();
 		DirectX::XMFLOAT4X4 GetWorldInverseTransposeMatrix();
-
-		// you can get... everything
+	
+		// setters
+		void SetLocalPosition(float x, float y, float z);
+		void SetLocalPosition(DirectX::XMFLOAT3 position);
+		inline void TH_VECTORCALL StoreLocalPosition(DirectX::FXMVECTOR pos) noexcept;
+		void SetLocalEulerAngles(float x, float y, float z);
+		void SetLocalEulerAngles(DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL StoreLocalEulerAngles(DirectX::FXMVECTOR angles) noexcept;
+		void SetLocalScale(float x, float y, float z);
+		void SetLocalScale(DirectX::XMFLOAT3 scale);
+		inline void TH_VECTORCALL StoreLocalScale(DirectX::FXMVECTOR scale) noexcept;
 		void SetPosition(float x, float y, float z);
 		void SetPosition(DirectX::XMFLOAT3 position);
-		void SetRotation(float pitch, float yaw, float roll);
-		void SetRotation(DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL StorePosition(DirectX::FXMVECTOR pos) noexcept;
+		void SetEulerAngles(float pitch, float yaw, float roll);
+		void SetEulerAngles(DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL StoreEulerAngles(DirectX::FXMVECTOR angles) noexcept;
 		void SetScale(float x, float y, float z);
 		void SetScale(DirectX::XMFLOAT3 scale);
+		inline void TH_VECTORCALL StoreScale(DirectX::FXMVECTOR scale) noexcept;
+		
+		// getters
+		DirectX::XMFLOAT3 GetLocalPosition() const;
+		inline DirectX::XMVECTOR LoadLocalPosition() const noexcept;
+		DirectX::XMFLOAT3 GetLocalEulerAngles() const;
+		inline DirectX::XMVECTOR LoadLocalEulerAngles() const noexcept;
+		DirectX::XMFLOAT3 GetLocalScale() const;
+		inline DirectX::XMVECTOR LoadLocalScale() const noexcept;
 		DirectX::XMFLOAT3 GetPosition() const;
-		DirectX::XMFLOAT3 GetPitchYawRoll() const;
+		inline DirectX::XMVECTOR LoadPosition() const noexcept;
+		DirectX::XMFLOAT3 GetEulerAngles() const;
+		inline DirectX::XMVECTOR LoadEulerAngles() const noexcept;
 		DirectX::XMFLOAT3 GetScale() const;
+		inline DirectX::XMVECTOR LoadScale() const noexcept;
 		DirectX::XMFLOAT3 GetForward() const;
+		inline DirectX::XMVECTOR LoadForward() const noexcept;
 		DirectX::XMFLOAT3 GetUp() const;
+		inline DirectX::XMVECTOR LoadRight() const noexcept;
 		DirectX::XMFLOAT3 GetRight() const;
+		inline DirectX::XMVECTOR LoadUp() const noexcept;
+
+		// transformers
 		void MoveAbsolute(float x, float y, float z);
 		void MoveAbsolute(DirectX::XMFLOAT3 offset);
+		inline void TH_VECTORCALL MoveAbsoluteVec(DirectX::FXMVECTOR offset) noexcept;
 		void MoveAbsoluteLocal(float x, float y, float z);
 		void MoveAbsoluteLocal(DirectX::XMFLOAT3 offset);
+		inline void TH_VECTORCALL MoveAbsoluteLocalVec(DirectX::FXMVECTOR offset) noexcept;
 		void MoveRelative(float x, float y, float z);
 		void MoveRelative(DirectX::XMFLOAT3 offset);
+		inline void TH_VECTORCALL MoveRelativeVec(DirectX::FXMVECTOR offset) noexcept;
 		void Rotate(float pitch, float yaw, float roll);
 		void Rotate(DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL RotateVec(DirectX::FXMVECTOR eulerAngles) noexcept;
 		void Scale(float x, float y, float z);
 		void Scale(DirectX::XMFLOAT3 scale);
-
-		// simd variants
 		inline void TH_VECTORCALL ScaleVec(DirectX::FXMVECTOR scale) noexcept;
-		inline void TH_VECTORCALL RotateVec(DirectX::FXMVECTOR eulerAngles) noexcept;
-		inline void TH_VECTORCALL MoveAbsoluteVec(DirectX::FXMVECTOR offset) noexcept;
-		inline void TH_VECTORCALL MoveAbsoluteLocalVec(DirectX::FXMVECTOR offset) noexcept;
-
-		/// <summary>
-		/// Move the vector in the space of a child identity transform.
-		/// Moving { 0, 0, 1 } moves the transform in the direction it is pointing, etc
-		/// </summary>
-		/// <param name="offset">The amount to move by, in child space</param>
-		inline void TH_VECTORCALL MoveRelativeVec(DirectX::FXMVECTOR offset) noexcept;
 
 		/// <summary>
 		/// Gets the local translation, rotation, and scale of the transform simultaneously.
@@ -82,37 +102,6 @@ namespace ggp
 			DirectX::XMVECTOR* outPos,
 			DirectX::XMVECTOR* outQuat,
 			DirectX::XMVECTOR* outScale) const noexcept;
-
-		inline DirectX::XMVECTOR LoadLocalPosition() const noexcept;
-		inline DirectX::XMVECTOR LoadLocalEulerAngles() const noexcept;
-		inline DirectX::XMVECTOR LoadLocalScale() const noexcept;
-		inline DirectX::XMVECTOR LoadPosition() const noexcept;
-		inline DirectX::XMVECTOR LoadEulerAngles() const noexcept;
-		inline DirectX::XMVECTOR LoadScale() const noexcept;
-
-		/// <summary>
-		/// Calculate the forward vector for this transform in global space.
-		/// May invoke tree traversal if the transform is dirty
-		/// </summary>
-		inline DirectX::XMVECTOR LoadForwardVector() const noexcept;
-		/// <summary>
-		/// Calculate the right vector for this transform in global space.
-		/// May invoke tree traversal if the transform is dirty
-		/// </summary>
-		inline DirectX::XMVECTOR LoadRightVector() const noexcept;
-		/// <summary>
-		/// Calculate the up vector for this transform in global space.
-		/// May invoke tree traversal if the transform is dirty
-		/// </summary>
-		inline DirectX::XMVECTOR LoadUpVector() const noexcept;
-
-		// store local space or global space
-		inline void TH_VECTORCALL StorePosition(DirectX::FXMVECTOR pos) noexcept;
-		inline void TH_VECTORCALL StoreEulerAngles(DirectX::FXMVECTOR angles) noexcept;
-		inline void TH_VECTORCALL StoreScale(DirectX::FXMVECTOR scale) noexcept;
-		inline void TH_VECTORCALL StoreLocalPosition(DirectX::FXMVECTOR pos) noexcept;
-		inline void TH_VECTORCALL StoreLocalEulerAngles(DirectX::FXMVECTOR angles) noexcept;
-		inline void TH_VECTORCALL StoreLocalScale(DirectX::FXMVECTOR scale) noexcept;
 
 	private:
 		TransformHierarchy::Handle handle;
@@ -150,7 +139,7 @@ namespace ggp
 
 	inline DirectX::XMVECTOR Transform::LoadPosition() const noexcept
 	{
-		return internals::hierarchy->LoadScale(handle);
+		return internals::hierarchy->LoadPosition(handle);
 	}
 
 	inline DirectX::XMVECTOR Transform::LoadEulerAngles() const noexcept
@@ -193,7 +182,7 @@ namespace ggp
 		internals::hierarchy->StoreLocalScale(handle, scale);
 	}
 
-	inline DirectX::XMVECTOR Transform::LoadForwardVector() const noexcept
+	inline DirectX::XMVECTOR Transform::LoadForward() const noexcept
 	{
 		using namespace DirectX;
 		XMVECTOR out;
@@ -204,28 +193,26 @@ namespace ggp
 		return XMVector3Rotate(out, quat);
 	}
 
-	inline DirectX::XMVECTOR Transform::LoadRightVector() const noexcept
+	inline DirectX::XMVECTOR Transform::LoadRight() const noexcept
 	{	
 		using namespace DirectX;
 		XMVECTOR out;
 		XMVECTOR quat;
 		XMVECTOR scale;
 		LoadMatrixDecomposed(&out, &quat, &scale);
-		XMVectorSet(1, 0, 0, 0);
-		XMVector3Rotate(out, quat);
-		return out;
+		out = XMVectorSet(1, 0, 0, 0);
+		return XMVector3Rotate(out, quat);
 	}
 
-	inline DirectX::XMVECTOR Transform::LoadUpVector() const noexcept
+	inline DirectX::XMVECTOR Transform::LoadUp() const noexcept
 	{
 		using namespace DirectX;
 		XMVECTOR out;
 		XMVECTOR quat;
 		XMVECTOR scale;
 		LoadMatrixDecomposed(&out, &quat, &scale);
-		XMVectorSet(0, 1, 0, 0);
-		XMVector3Rotate(out, quat);
-		return out;
+		out = XMVectorSet(0, 1, 0, 0);
+		return XMVector3Rotate(out, quat);
 	}
 
 	inline void TH_VECTORCALL Transform::ScaleVec(DirectX::FXMVECTOR scale) noexcept
@@ -247,7 +234,7 @@ namespace ggp
 		// store, quattoeuler doesnt use simd
 		XMFLOAT4 q;
 		XMStoreFloat4(&q, current);
-		SetRotation(QuatToEuler(q));
+		SetEulerAngles(QuatToEuler(q));
 	}
 
 	inline void TH_VECTORCALL Transform::MoveAbsoluteLocalVec(DirectX::FXMVECTOR offset) noexcept
