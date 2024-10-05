@@ -9,6 +9,11 @@ namespace ggp
 		return DirectX::XMVectorSet(f, f, f, f);
 	}
 
+	inline constexpr float RadToDeg(float rad)
+	{
+		return (180.f / DirectX::XM_PI) * rad;
+	}
+
 	inline constexpr float DegToRad(float deg)
 	{
 		return (DirectX::XM_PI / 180.f) * deg;

@@ -44,6 +44,9 @@ namespace ggp
 		void UpdateProjectionMatrix(f32 aspectRatio, u32 width, u32 height) noexcept;
 		void Update(f32 dt) noexcept;
 
+		inline Transform GetTransform() noexcept { return m_transform; }
+		inline f32 GetFov() noexcept { return m_fov; }
+
 	private:
 		void UpdateViewMatrix() noexcept;
 

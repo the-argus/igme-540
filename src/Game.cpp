@@ -43,13 +43,17 @@ void Game::Initialize()
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
 	CreateEntities();
-	m_camera = std::make_shared<Camera>(Camera::Options{
+	m_cameras.push_back(std::make_shared<Camera>(Camera::Options{
 		.aspectRatio = Window::AspectRatio(),
 		.initialGlobalPosition = { 0, 0, -1 },
-			// NOTE: horrible trial and error to get this :(
-			// couldnt get reverse-engineering it from the matrix returned by LookAt to work
 		.initialRotation = { -DegToRad(45), DegToRad(90)},
-	});
+	}));
+	m_cameras.push_back(std::make_shared<Camera>(Camera::Options{
+		.aspectRatio = Window::AspectRatio(),
+		.fovDegrees = 70,
+		.initialGlobalPosition = { -1, 0, -1 },
+	}));
+	m_activeCamera = 0;
 
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -300,8 +304,8 @@ void Game::UIEndFrame() noexcept
 // --------------------------------------------------------
 void Game::OnResize()
 {
-	if (m_camera)
-		m_camera->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
+	if (!m_cameras.empty() && m_activeCamera < m_cameras.size())
+		m_cameras[m_activeCamera]->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
 }
 
 static void SpinRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
@@ -346,7 +350,8 @@ void Game::Update(float deltaTime, float totalTime)
 		SpinRecursive(deltaTime / 50.f, totalTime / 50.f, root);
 	}
 
-	m_camera->Update(deltaTime);
+	gassert(m_activeCamera < m_cameras.size());
+	m_cameras[m_activeCamera]->Update(deltaTime);
 
 	// UI frame ended in Draw()
 	UIBeginFrame(deltaTime);
@@ -368,6 +373,17 @@ void Game::BuildUI() noexcept
 
 	if (m_demoWindowVisible)
 		ImGui::ShowDemoWindow();
+
+	for (size_t i = 0; i < m_cameras.size(); ++i)
+	{
+		if (ImGui::RadioButton((std::string("Camera ") + std::to_string(i)).c_str(), m_activeCamera == i))
+			m_activeCamera = i;
+
+		Camera& cam = *m_cameras[i];
+		ImGui::Text("FOV: %f", RadToDeg(cam.GetFov()));
+		XMFLOAT3 pos = cam.GetTransform().GetPosition();
+		ImGui::Text("Pos: %4.2f %4.2f %4.2f", pos.x, pos.y, pos.z);
+	}
 
 	// plot the fps samples
 	ImGui::PlotHistogram("FPS Graph", m_framerateHistory->data(), static_cast<int>(m_framerateHistory->size()));
@@ -467,12 +483,14 @@ void Game::Draw(float deltaTime, float totalTime)
 	{
 		// send cb to shaders
 		{
+			gassert(m_activeCamera < m_cameras.size());
+			Camera& camera = *m_cameras[m_activeCamera];
 			D3D11_MAPPED_SUBRESOURCE cbMapped{};
 			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
 
 			((cb::WVPAndColor*)cbMapped.pData)->worldMatrix = *entity.GetTransform().GetWorldMatrixPtr();
-			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *m_camera->GetViewMatrix();
-			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *m_camera->GetProjectionMatrix();
+			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *camera.GetViewMatrix();
+			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *camera.GetProjectionMatrix();
 			((cb::WVPAndColor*)cbMapped.pData)->color = m_constantBufferCPUSide.color;
 
 			// memcpy(cbMapped.pData, &m_constantBufferCPUSide, sizeof(cb::TransformAndColor));

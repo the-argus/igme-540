@@ -56,7 +56,8 @@ private:
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
 
-	std::shared_ptr<ggp::Camera> m_camera;
+	size_t m_activeCamera;
+	std::vector<std::shared_ptr<ggp::Camera>> m_cameras;
 
 	ggp::com_p<ID3D11Buffer> m_constantBuffer;
 	ggp::cb::WVPAndColor m_constantBufferCPUSide;
