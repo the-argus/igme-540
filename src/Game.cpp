@@ -40,6 +40,12 @@ void Game::Initialize()
 	// geometry to draw and some simple camera matrices.
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
+
+	// group shaders and colors into materials
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{0.5f, 0.5f, 1.f, 1.f}));
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{1.f, 0.5f, 1.f, 1.f}));
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
+
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
 	CreateEntities();
@@ -55,33 +61,7 @@ void Game::Initialize()
 		}));
 	m_activeCamera = 0;
 
-	// Set initial graphics API state
-	//  - These settings persist until we change them
-	//  - Some of these, like the primitive topology & input layout, probably won't change
-	//  - Others, like setting shaders, will need to be moved elsewhere later
-	{
-		// Tell the input assembler (IA) stage of the pipeline what kind of
-		// geometric primitives (points, lines or triangles) we want to draw.  
-		// Essentially: "What kind of shape should the GPU draw with our vertices?"
-		Graphics::Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	}
-
-	{
-		// create dynamic constant buffer on gpu
-		const D3D11_BUFFER_DESC desc{
-			.ByteWidth = alignsize<decltype(m_constantBufferCPUSide), 16>::value,
-			.Usage = D3D11_USAGE_DYNAMIC,
-			.BindFlags = D3D11_BIND_CONSTANT_BUFFER,
-			.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
-		};
-		Graphics::Device->CreateBuffer(&desc, nullptr, m_constantBuffer.GetAddressOf());
-
-		// initial color. not mapped / put into gpu until draw
-		m_constantBufferCPUSide.color = { 1.0f, 0.5f, 0.5f, 1.0f };
-
-		// bind cb and keep binding for the whole program
-		Graphics::Context->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
-	}
+	Graphics::Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// Initialize ImGui itself & platform/renderer backends
 	IMGUI_CHECKVERSION();
@@ -119,11 +99,11 @@ void Game::LoadShaders()
 void Game::CreateEntities()
 {
 	Mesh* tri = &m_alwaysLoadedMeshes["triangle"];
-	Entity root(tri);
+	Entity root(tri, m_materials[0].get());
 	root.GetTransform().SetPosition({ -0.5f, -0.5f, -0.0f });
-	Entity out1(tri, root.GetTransform().AddChild());
-	Entity out2(tri, root.GetTransform().AddChild());
-	Entity out3(tri, root.GetTransform().AddChild());
+	Entity out1(tri, m_materials[1].get(), root.GetTransform().AddChild());
+	Entity out2(tri, m_materials[1].get(), root.GetTransform().AddChild());
+	Entity out3(tri, m_materials[1].get(), root.GetTransform().AddChild());
 
 	XMVECTOR pointOne = VectorSplat(.1f);
 	out1.GetTransform().ScaleVec(pointOne);
@@ -135,9 +115,9 @@ void Game::CreateEntities()
 	out3.GetTransform().MoveAbsoluteLocal({ 0.0f, -0.3f, 0.05f });
 
 	Mesh* drop = &m_alwaysLoadedMeshes["droplet"];
-	Entity droplet1(drop, out1.GetTransform().AddChild());
-	Entity droplet2(drop, out1.GetTransform().AddChild());
-	Entity droplet3(drop, out1.GetTransform().AddChild());
+	Entity droplet1(drop, m_materials[2].get(), out1.GetTransform().AddChild());
+	Entity droplet2(drop, m_materials[2].get(), out1.GetTransform().AddChild());
+	Entity droplet3(drop, m_materials[2].get(), out1.GetTransform().AddChild());
 
 	droplet1.GetTransform().MoveAbsoluteLocal({ 0.2f, 0.2f, 0.f });
 	droplet2.GetTransform().MoveAbsoluteLocal({ -0.2f, 0.0f, 0.1f });
@@ -272,7 +252,7 @@ void Game::Update(float deltaTime, float totalTime)
 	if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
-		SpinRecursive(deltaTime / 50.f, totalTime / 50.f, root);
+		SpinRecursive(deltaTime / 500.f, totalTime / 500.f, root);
 	}
 
 	gassert(m_activeCamera < m_cameras.size());
@@ -333,8 +313,6 @@ void Game::BuildUI() noexcept
 	const char* last = m_lastTypedStrings.empty() ? "NO STRING ENTERED" : m_lastTypedStrings.back().c_str();
 	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
-
-	ImGui::ColorEdit4("Color", &m_constantBufferCPUSide.color.x);
 
 	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
 	{
@@ -406,21 +384,22 @@ void Game::Draw(float deltaTime, float totalTime)
 
 	for (ggp::Entity& entity : m_entities)
 	{
+		// activate entity's shaders
+		entity.GetMaterial()->GetPixelShader()->SetShader();
+		entity.GetMaterial()->GetVertexShader()->SetShader();
+
 		// send cb to shaders
 		{
 			gassert(m_activeCamera < m_cameras.size());
 			Camera& camera = *m_cameras[m_activeCamera];
-			D3D11_MAPPED_SUBRESOURCE cbMapped{};
-			Graphics::Context->Map(m_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &cbMapped);
 
-			((cb::WVPAndColor*)cbMapped.pData)->worldMatrix = *entity.GetTransform().GetWorldMatrixPtr();
-			((cb::WVPAndColor*)cbMapped.pData)->viewMatrix = *camera.GetViewMatrix();
-			((cb::WVPAndColor*)cbMapped.pData)->projectionMatrix = *camera.GetProjectionMatrix();
-			((cb::WVPAndColor*)cbMapped.pData)->color = m_constantBufferCPUSide.color;
+			auto* vs = entity.GetMaterial()->GetVertexShader();
+			vs->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
+			vs->SetMatrix4x4("world", *entity.GetTransform().GetWorldMatrixPtr());
+			vs->SetMatrix4x4("view", *camera.GetViewMatrix());
+			vs->SetMatrix4x4("projection", *camera.GetProjectionMatrix());
 
-			// memcpy(cbMapped.pData, &m_constantBufferCPUSide, sizeof(cb::TransformAndColor));
-
-			Graphics::Context->Unmap(m_constantBuffer.Get(), 0);
+			vs->CopyAllBufferData();
 		}
 		entity.GetMesh()->BindBuffersAndDraw();
 	}

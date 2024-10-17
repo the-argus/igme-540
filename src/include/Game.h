@@ -9,11 +9,10 @@
 #include <string>
 
 #include "SimpleShader.h"
-
+#include "Material.h"
 #include "Mesh.h"
 #include "Entity.h"
 #include "Camera.h"
-#include "ConstantBuffers.h"
 #include "ggp_com_pointer.h"
 
 class Game
@@ -55,14 +54,12 @@ private:
 
 	// meshes that load at the start of the game and unload at the end- avoid lifetime management (for now)
 	std::unordered_map<std::string, ggp::Mesh> m_alwaysLoadedMeshes;
+	std::vector<std::unique_ptr<ggp::Material>> m_materials;
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
 
 	size_t m_activeCamera;
 	std::vector<std::shared_ptr<ggp::Camera>> m_cameras;
-
-	ggp::com_p<ID3D11Buffer> m_constantBuffer;
-	ggp::cb::WVPAndColor m_constantBufferCPUSide;
 
 	std::shared_ptr<SimpleVertexShader> m_vertexShader;
 	std::shared_ptr<SimplePixelShader> m_pixelShader;
