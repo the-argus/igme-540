@@ -96,6 +96,20 @@ void Game::LoadShaders()
 	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"PixelShader.cso").c_str());
 }
 
+static void PositionEntities(Transform t)
+{
+	if (auto c = t.GetFirstChild())
+	{
+		PositionEntities(c.value());
+	}
+	if (auto s = t.GetNextSibling())
+	{
+		PositionEntities(s.value());
+	}
+
+
+}
+
 void Game::CreateEntities()
 {
 	Mesh* tri = &m_alwaysLoadedMeshes["triangle"];
@@ -213,20 +227,17 @@ void Game::OnResize()
 		m_cameras[m_activeCamera]->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
 }
 
-static void SpinRecursive(float delta, float totalTime, Transform t, int depth = 0, int index = 0)
+static void SpinRecursive(float delta, Transform t)
 {
 	if (auto c = t.GetFirstChild())
 	{
-		SpinRecursive(delta, totalTime, c.value(), depth + 1, 0);
+		SpinRecursive(delta, c.value());
 	}
 	if (auto s = t.GetNextSibling())
 	{
-		SpinRecursive(delta, totalTime, s.value(), depth, index + 1);
+		SpinRecursive(delta, s.value());
 	}
 
-	t.SetPosition({ .0f + (index / 3.f), .0f + (0.3f * sin(totalTime + depth + index)), 0.1f * (index + depth) });
-	float scale = ((sinf(totalTime) + 1) * 0.25f) + 0.5f;
-	t.SetScale({ scale, scale, 1.0f });
 	t.Rotate({ 0.f, 0.f, delta });
 }
 
@@ -252,7 +263,7 @@ void Game::Update(float deltaTime, float totalTime)
 	if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
-		SpinRecursive(deltaTime / 500.f, totalTime / 500.f, root);
+		SpinRecursive(deltaTime, root);
 	}
 
 	gassert(m_activeCamera < m_cameras.size());
