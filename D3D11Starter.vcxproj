@@ -125,7 +125,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>deps/imgui/include/;src/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>deps/imgui/include/;src/include/;deps/SimpleShader/include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -163,6 +163,7 @@
     <ClCompile Include="deps\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="deps\imgui\imgui_tables.cpp" />
     <ClCompile Include="deps\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="deps\SimpleShader\SimpleShader.cpp" />
     <ClCompile Include="src/Game.cpp" />
     <ClCompile Include="src/Graphics.cpp" />
     <ClCompile Include="src/Input.cpp" />
@@ -172,6 +173,7 @@
     <ClCompile Include="src\BlockAllocator.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Entity.cpp" />
+    <ClCompile Include="src\Material.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\Transform.cpp" />
     <ClCompile Include="src\TransformHierarchy.cpp" />
@@ -185,6 +187,7 @@
     <ClInclude Include="deps\imgui\include\imstb_rectpack.h" />
     <ClInclude Include="deps\imgui\include\imstb_textedit.h" />
     <ClInclude Include="deps\imgui\include\imstb_truetype.h" />
+    <ClInclude Include="deps\SimpleShader\include\SimpleShader.h" />
     <ClInclude Include="src/include/Game.h" />
     <ClInclude Include="src/include/Graphics.h" />
     <ClInclude Include="src/include/Input.h" />
@@ -197,6 +200,7 @@
     <ClInclude Include="src\include\Entity.h" />
     <ClInclude Include="src\include\errors.h" />
     <ClInclude Include="src\include\ggp_math.h" />
+    <ClInclude Include="src\include\Material.h" />
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
     <ClInclude Include="src\include\Mesh.h" />

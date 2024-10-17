@@ -19,6 +19,12 @@
     <Filter Include="imgui\impl">
       <UniqueIdentifier>{aec0134b-e093-4ec8-90b2-c39c1c4c34b0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="SimpleShader">
+      <UniqueIdentifier>{c7375edf-88d1-4f5f-987f-ee0a3a2eed34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SimpleShader\impl">
+      <UniqueIdentifier>{a656a12d-9e24-4337-84cd-ea4745309f19}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src/Main.cpp">
@@ -76,6 +82,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="deps\SimpleShader\SimpleShader.cpp">
+      <Filter>SimpleShader\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Material.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -153,6 +165,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\include\ggp_math.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="deps\SimpleShader\include\SimpleShader.h">
+      <Filter>SimpleShader</Filter>
+    </ClInclude>
+    <ClInclude Include="src\include\Material.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

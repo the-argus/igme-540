@@ -8,6 +8,8 @@
 #include <memory>
 #include <string>
 
+#include "SimpleShader.h"
+
 #include "Mesh.h"
 #include "Entity.h"
 #include "Camera.h"
@@ -62,14 +64,7 @@ private:
 	ggp::com_p<ID3D11Buffer> m_constantBuffer;
 	ggp::cb::WVPAndColor m_constantBufferCPUSide;
 
-	// Note the usage of ComPtr below
-	//  - This is a smart pointer for objects that abide by the
-	//     Component Object Model, which DirectX objects do
-	//  - More info here: https://github.com/Microsoft/DirectXTK/wiki/ComPtr
-
-	// Shaders and shader-related constructs
-	ggp::com_p<ID3D11PixelShader> pixelShader;
-	ggp::com_p<ID3D11VertexShader> vertexShader;
-	ggp::com_p<ID3D11InputLayout> inputLayout;
+	std::shared_ptr<SimpleVertexShader> m_vertexShader;
+	std::shared_ptr<SimplePixelShader> m_pixelShader;
 };
 
