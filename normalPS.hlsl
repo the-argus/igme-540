@@ -1,9 +1,4 @@
-struct VertexToPixel
-{
-	float4 screenPosition	: SV_POSITION;
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
-};
+#include "forward_vertex_to_pixel.hlsli"
 
 cbuffer ExternalData : register(b0)
 {
@@ -11,7 +6,7 @@ cbuffer ExternalData : register(b0)
     float totalTime;
 }
 
-float4 main(VertexToPixel input) : SV_TARGET
+float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
     return float4(input.normal, 1);
 }

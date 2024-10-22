@@ -1,9 +1,4 @@
-struct VertexToPixel
-{
-	float4 screenPosition	: SV_POSITION;
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
-};
+#include "forward_vertex_to_pixel.hlsli"
 
 cbuffer ExternalData : register(b0)
 {
@@ -69,7 +64,7 @@ float FunnyNoise(float2 coord)
     return accumulatedNoise / (totalAmp * 1.5f);
 }
 
-float4 main(VertexToPixel input) : SV_TARGET
+float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
     float rvalue = FunnyNoise(input.uv);
     float gvalue = FunnyNoise(float2(rvalue, rvalue));

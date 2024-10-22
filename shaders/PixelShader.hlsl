@@ -1,3 +1,5 @@
+#include "forward_vertex_to_pixel.hlsli"
+
 struct VertexToPixel
 {
 	float4 screenPosition	: SV_POSITION;

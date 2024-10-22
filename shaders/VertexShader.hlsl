@@ -1,16 +1,10 @@
+#include "forward_rasterized_data.hlsli"
 
 struct VertexShaderInput
 { 
 	float3 position	: POSITION;
 	float3 normal	: NORMAL;
 	float2 uv		: TEXCOORD;
-};
-
-struct VertexToPixel
-{
-	float4 screenPosition	: SV_POSITION;
-	float3 normal			: NORMAL;
-	float2 uv				: TEXCOORD;
 };
 
 cbuffer ExternalData : register(b0)
@@ -20,9 +14,9 @@ cbuffer ExternalData : register(b0)
 	float4x4 projection;
 }
 
-VertexToPixel main( VertexShaderInput input )
+ForwardVertexToPixel main( VertexShaderInput input )
 {
-	VertexToPixel output;
+	ForwardVertexToPixel output;
 
 	matrix wvp = mul(projection, mul(view, world));
 	output.screenPosition = mul(wvp, float4(input.position, 1.0f));
