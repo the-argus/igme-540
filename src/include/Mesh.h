@@ -1,5 +1,6 @@
 #pragma once
 #include <span>
+#include <vector>
 #include <d3d11.h>
 
 #include "Vertex.h"
@@ -17,7 +18,9 @@ namespace ggp
 		Mesh(Mesh&&) noexcept = default;
 		Mesh& operator=(Mesh&&) noexcept = default;
 
-		inline Mesh() {}
+		// NOTE: this is here because emplacing into some containers wasn't working as expected,
+		// didn't want to have to deal with it. TODO remove this
+		inline Mesh() = default;
 
 		/// <summary>
 		/// Construct a mesh by uploading the given vertices and indices to the GPU. the resulting
@@ -34,6 +37,10 @@ namespace ggp
 		/// Identical to the equivalent constructor but with explicit name to show gpu transfer is happening
 		/// </summary>
 		inline static Mesh UploadToGPU(std::span<Vertex> verts, std::span<u32> indices) noexcept { return Mesh(verts, indices); }
+
+		using unique_vertices_t = std::vector<Vertex>;
+		using unique_indices_t = std::vector<u32>;
+		static std::tuple<unique_vertices_t, unique_indices_t> ReadOBJ(const wchar_t* filename) noexcept;
 
 		inline com_p<ID3D11Buffer> GetVertexBuffer() const noexcept { return m_vertexBuffer; }
 		inline com_p<ID3D11Buffer> GetIndexBuffer() const noexcept { return m_indexBuffer; }

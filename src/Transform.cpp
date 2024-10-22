@@ -41,6 +41,10 @@ auto ggp::Transform::GetParent() noexcept -> std::optional<Transform>
 	return hierarchy->GetParent(handle);
 }
 
+u32 ggp::Transform::GetChildCount() noexcept
+{
+	return hierarchy->GetChildCount(handle);
+}
 
 auto ggp::Transform::AddChild() noexcept -> Transform
 {

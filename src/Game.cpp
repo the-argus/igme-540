@@ -11,11 +11,8 @@
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
 
-#include "BlockAllocator.h"
-
 #include <DirectXMath.h>
 
-#include <array>
 #include <algorithm>
 
 // Needed for a helper function to load pre-compiled shader files
@@ -43,8 +40,9 @@ void Game::Initialize()
 
 	// group shaders and colors into materials
 	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{0.5f, 0.5f, 1.f, 1.f}));
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{1.f, 0.5f, 1.f, 1.f}));
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), XMFLOAT4{1.f, 0.5f, 1.f, 1.f}));
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderUV.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
+	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderCustom.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
 
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
@@ -94,56 +92,81 @@ void Game::LoadShaders()
 {
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"VertexShader.cso").c_str());
 	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"PixelShader.cso").c_str());
+	m_pixelShaderNormal = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"normalPS.cso").c_str());
+	m_pixelShaderUV = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"uvPS.cso").c_str());
+	m_pixelShaderCustom = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"customPS.cso").c_str());
 }
 
-static void PositionEntities(Transform t)
+// recursively position entites around each other
+static void PositionEntities(Transform t, u32 siblingCount = 1, u32 depth = 0, u32 length = 0)
 {
 	if (auto c = t.GetFirstChild())
 	{
-		PositionEntities(c.value());
+		PositionEntities(c.value(), t.GetChildCount(), depth + 1, 0);
 	}
+
 	if (auto s = t.GetNextSibling())
 	{
-		PositionEntities(s.value());
+		gassert(siblingCount > 1, "there were not supposed to be siblings...");
+		PositionEntities(s.value(), siblingCount, depth, length + 1);
 	}
 
+	XMFLOAT3 localPosition {};
+	// position the object around the Y axis
+	XMScalarSinCosEst(&localPosition.z, &localPosition.x, XM_2PI * (length / siblingCount));
 
+	// every other set of children is positioned around X axis instead
+	//if (depth % 2)
+	//	std::swap(localPosition.z, localPosition.y);
+
+	// multiply distance by one times length + 1
+	XMVECTOR loaded = XMLoadFloat3(&localPosition);
+	// loaded = XMVectorMultiply(loaded, VectorSplat(length + 1));
+	loaded = XMVectorAdd(loaded, VectorSplat(2));
+
+	t.StoreLocalPosition(loaded);
 }
 
 void Game::CreateEntities()
 {
-	Mesh* tri = &m_alwaysLoadedMeshes["triangle"];
-	Entity root(tri, m_materials[0].get());
-	root.GetTransform().SetPosition({ -0.5f, -0.5f, -0.0f });
-	Entity out1(tri, m_materials[1].get(), root.GetTransform().AddChild());
-	Entity out2(tri, m_materials[1].get(), root.GetTransform().AddChild());
-	Entity out3(tri, m_materials[1].get(), root.GetTransform().AddChild());
+	Mesh* cube = &m_alwaysLoadedMeshes[L"cube.obj"];
+	Mesh* cylinder = &m_alwaysLoadedMeshes[L"cylinder.obj"];
+	Mesh* helix = &m_alwaysLoadedMeshes[L"helix.obj"];
+	Mesh* quad = &m_alwaysLoadedMeshes[L"quad.obj"];
+	Mesh* sphere = &m_alwaysLoadedMeshes[L"sphere.obj"];
+	Mesh* quad_double_sided = &m_alwaysLoadedMeshes[L"quad_double_sided.obj"];
+	Mesh* torus = &m_alwaysLoadedMeshes[L"torus.obj"];
 
-	XMVECTOR pointOne = VectorSplat(.1f);
-	out1.GetTransform().ScaleVec(pointOne);
-	out2.GetTransform().ScaleVec(pointOne);
-	out3.GetTransform().ScaleVec(pointOne);
+	Entity root(cube, m_materials[0].get());
 
-	out1.GetTransform().MoveAbsoluteLocal({ 0.2f, 0.2f, 0.f });
-	out2.GetTransform().MoveAbsoluteLocal({ -0.2f, 0.0f, 0.1f });
-	out3.GetTransform().MoveAbsoluteLocal({ 0.0f, -0.3f, 0.05f });
+	Entity layer00(cube, m_materials[3].get(), root.GetTransform().AddChild());
+	Entity layer01(cube, m_materials[3].get(), root.GetTransform().AddChild());
 
-	Mesh* drop = &m_alwaysLoadedMeshes["droplet"];
-	Entity droplet1(drop, m_materials[2].get(), out1.GetTransform().AddChild());
-	Entity droplet2(drop, m_materials[2].get(), out1.GetTransform().AddChild());
-	Entity droplet3(drop, m_materials[2].get(), out1.GetTransform().AddChild());
+	Entity out1(helix, m_materials[0].get(), layer00.GetTransform().AddChild());
+	Entity out2(quad, m_materials[1].get(), layer00.GetTransform().AddChild());
+	Entity out3(sphere, m_materials[1].get(), layer00.GetTransform().AddChild());
 
-	droplet1.GetTransform().MoveAbsoluteLocal({ 0.2f, 0.2f, 0.f });
-	droplet2.GetTransform().MoveAbsoluteLocal({ -0.2f, 0.0f, 0.1f });
-	droplet3.GetTransform().MoveAbsoluteLocal({ 0.0f, -0.3f, 0.05f });
+	Entity droplet1(quad_double_sided, m_materials[2].get(), out1.GetTransform().AddChild());
+	Entity droplet2(torus, m_materials[2].get(), out1.GetTransform().AddChild());
+	Entity droplet3(cube, m_materials[3].get(), out1.GetTransform().AddChild());
+
+	// recursively position all the entites around each other
+	// PositionEntities(root.GetTransform());
 
 	m_entities.push_back(root);
+	m_entities.push_back(layer00);
+	m_entities.push_back(layer01);
 	m_entities.push_back(out1);
 	m_entities.push_back(out2);
 	m_entities.push_back(out3);
 	m_entities.push_back(droplet1);
 	m_entities.push_back(droplet2);
 	m_entities.push_back(droplet3);
+
+	for (int i = 0; i < m_entities.size(); ++i) {
+		f32 yOffset = m_entities[i].GetTransform().GetParent() ? -1.f : 0.f;
+		m_entities[i].GetTransform().SetLocalPosition({ f32(i) * 2.f, yOffset, 0.f});
+	}
 }
 
 // --------------------------------------------------------
@@ -151,48 +174,20 @@ void Game::CreateEntities()
 // --------------------------------------------------------
 void Game::CreateGeometry()
 {
-	constexpr XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	constexpr XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	constexpr XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-
-	Vertex triangle_vertices[] = {
-		{ {+0.0f, +0.5f, +0.0f}, red },
-		{ {+0.5f, -0.5f, +0.0f}, blue },
-		{ {-0.5f, -0.5f, +0.0f}, green },
+	constexpr std::array files = {
+		L"cube.obj",
+		L"cylinder.obj",
+		L"helix.obj",
+		L"quad.obj",
+		L"sphere.obj",
+		L"quad_double_sided.obj",
+		L"torus.obj",
 	};
 
-	u32 triangle_indices[] = { 0, 1, 2 };
-
-	constexpr float pi = 3.141592653f;
-	constexpr float degtorad = pi / 180.f;
-
-	Vertex hexagon_vertices[] = {
-		{ {0.1f * cosf(degtorad * 30), 0.1f * sinf(degtorad * 30), 0}, red},
-		{ {0.1f * cosf(degtorad * 90), 0.1f * sinf(degtorad * 90), 0}, blue},
-		{ {0.1f * cosf(degtorad * 150), 0.1f * sinf(degtorad * 150), 0}, green},
-		{ {0.1f * cosf(degtorad * 210), 0.1f * sinf(degtorad * 210), 0}, red},
-		{ {0.1f * cosf(degtorad * 270), 0.1f * sinf(degtorad * 270), 0}, blue},
-		{ {0.1f * cosf(degtorad * 330), 0.1f * sinf(degtorad * 330), 0}, green},
-	};
-	u32 hexagon_indices[] = { 5, 4, 0, 4, 3, 0, 3, 2, 0, 2, 1, 0 };
-
-	Vertex droplet_vertices[] = {
-		// top point
-		{ {0, .15f, 0}, blue },
-		// bottom circle
-		{ { 0.1f * cosf(degtorad * 0),    0.1f * sinf(degtorad * 0), 0}, red },
-		{ { 0.1f * cosf(degtorad * -45),  0.1f * sinf(degtorad * -45), 0}, red },
-		{ { 0.1f * cosf(degtorad * -90),  0.1f * sinf(degtorad * -90), 0}, red },
-		{ { 0.1f * cosf(degtorad * -135), 0.1f * sinf(degtorad * -135), 0}, red },
-		{ { 0.1f * cosf(degtorad * -180), 0.1f * sinf(degtorad * -180), 0}, red },
-	};
-	u32 droplet_indices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
-
-	// upload all three meshes to the GPU
-	// NOTE: funny default construction + overwrite happening here
-	m_alwaysLoadedMeshes["triangle"] = Mesh(triangle_vertices, triangle_indices);
-	m_alwaysLoadedMeshes["hexagon"] = Mesh(hexagon_vertices, hexagon_indices);
-	m_alwaysLoadedMeshes["droplet"] = Mesh(droplet_vertices, droplet_indices);
+	for (auto* filename : files) {
+		auto [verts, indices] = Mesh::ReadOBJ(FixPath(std::wstring(L"../../assets/example_meshes/") + filename).c_str());
+		m_alwaysLoadedMeshes[filename] = Mesh::UploadToGPU(verts, indices);
+	}
 }
 
 void Game::UIBeginFrame(float deltaTime) noexcept
@@ -238,7 +233,7 @@ static void SpinRecursive(float delta, Transform t)
 		SpinRecursive(delta, s.value());
 	}
 
-	t.Rotate({ 0.f, 0.f, delta });
+	t.Rotate({ 0.f, 0.f, delta / 10.f });
 }
 
 // --------------------------------------------------------
@@ -405,12 +400,17 @@ void Game::Draw(float deltaTime, float totalTime)
 			Camera& camera = *m_cameras[m_activeCamera];
 
 			auto* vs = entity.GetMaterial()->GetVertexShader();
-			vs->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
+			auto* ps = entity.GetMaterial()->GetPixelShader();
+
 			vs->SetMatrix4x4("world", *entity.GetTransform().GetWorldMatrixPtr());
 			vs->SetMatrix4x4("view", *camera.GetViewMatrix());
 			vs->SetMatrix4x4("projection", *camera.GetProjectionMatrix());
 
+			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
+			ps->SetFloat("totalTime", totalTime);
+
 			vs->CopyAllBufferData();
+			ps->CopyAllBufferData();
 		}
 		entity.GetMesh()->BindBuffersAndDraw();
 	}

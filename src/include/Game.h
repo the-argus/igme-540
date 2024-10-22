@@ -40,7 +40,7 @@ private:
 	void UIEndFrame() noexcept;
 	void BuildUI() noexcept;
 
-	bool m_spinningEnabled = true;
+	bool m_spinningEnabled = false;
 	std::array<float, 4> m_backgroundColor = { 0 };
 	// NOTE: number of samples is tied to the percieved scroll speed of the graph,
 	// which also moves at a frame dependent speed
@@ -52,8 +52,7 @@ private:
 	static constexpr size_t maxStrings = 3;
 	bool m_demoWindowVisible = false;
 
-	// meshes that load at the start of the game and unload at the end- avoid lifetime management (for now)
-	std::unordered_map<std::string, ggp::Mesh> m_alwaysLoadedMeshes;
+	std::unordered_map<std::wstring, ggp::Mesh> m_alwaysLoadedMeshes;
 	std::vector<std::unique_ptr<ggp::Material>> m_materials;
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
@@ -63,5 +62,8 @@ private:
 
 	std::shared_ptr<SimpleVertexShader> m_vertexShader;
 	std::shared_ptr<SimplePixelShader> m_pixelShader;
+	std::shared_ptr<SimplePixelShader> m_pixelShaderNormal;
+	std::shared_ptr<SimplePixelShader> m_pixelShaderUV;
+	std::shared_ptr<SimplePixelShader> m_pixelShaderCustom;
 };
 

@@ -11,12 +11,7 @@ cbuffer ExternalData : register(b0)
     float totalTime;
 }
 
-float random(float2 s)
-{
-    return frac(sin(dot(s, float2(12.9898, 78.233))) * 43758.5453123);
-}
-
 float4 main(VertexToPixel input) : SV_TARGET
 {
-    return colorTint;
+    return float4(input.normal, 1);
 }

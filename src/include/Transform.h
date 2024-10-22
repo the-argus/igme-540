@@ -24,6 +24,7 @@ namespace ggp
 		std::optional<Transform> GetFirstChild() noexcept;
 		std::optional<Transform> GetNextSibling() noexcept;
 		std::optional<Transform> GetParent() noexcept;
+		u32 GetChildCount() noexcept;
 
 		// tree modification
 		Transform AddChild() noexcept;
@@ -229,7 +230,7 @@ namespace ggp
 		XMVECTOR diff = XMQuaternionRotationRollPitchYawFromVector(eulerAngles);
 
 		// actual rotation
-		current = XMQuaternionMultiply(diff, current);
+		current = XMQuaternionMultiply(current, diff);
 
 		// store, quattoeuler doesnt use simd
 		XMFLOAT4 q;

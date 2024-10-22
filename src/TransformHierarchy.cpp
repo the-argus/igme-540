@@ -30,6 +30,8 @@ void ggp::TransformHierarchy::Destroy(Handle handle) noexcept
 	{
 		i32 prev = -1;
 		auto* parent = GetPtr(trans->parentHandle);
+		gassert(parent->childCount > 0, "transform with children has child count of 0");
+		parent->childCount--;
 		i32 siblingIter = parent->childHandle;
 		gassert(!IsNull(siblingIter));
 		// handle case that we are the first child
@@ -110,6 +112,12 @@ auto ggp::TransformHierarchy::GetParent(Handle h) const noexcept -> std::optiona
 	return IsNull(trans->parentHandle) ? std::optional<Handle>{} : Handle(trans->parentHandle);
 }
 
+u32 ggp::TransformHierarchy::GetChildCount(Handle h) const noexcept
+{
+	abort_if(IsNull(h), "Attempt to get child count of null transform");
+	return GetPtr(h)->childCount;
+}
+
 auto ggp::TransformHierarchy::AddChild(Handle h) noexcept -> Handle
 {
 	abort_if(IsNull(h), "Attempt to add child to null transform");
@@ -129,6 +137,7 @@ auto ggp::TransformHierarchy::AddChild(Handle h) noexcept -> Handle
 	}
 
 	trans->childHandle = newChildIndex;
+	trans->childCount++;
 	return Handle(newChildIndex);
 }
 

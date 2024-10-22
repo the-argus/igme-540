@@ -39,6 +39,7 @@ namespace ggp
 		std::optional<Handle> GetFirstChild(Handle) const noexcept;
 		std::optional<Handle> GetNextSibling(Handle) const noexcept;
 		std::optional<Handle> GetParent(Handle) const noexcept;
+		u32 GetChildCount(Handle) const noexcept;
 
 		// tree modification
 		Handle AddChild(Handle) noexcept;
@@ -91,6 +92,7 @@ namespace ggp
 			i32 parentHandle = -1;
 			i32 nextSiblingHandle = -1;
 			i32 childHandle = -1;
+			u32 childCount = 0;
 			bool isDirty = false;
 
 			InternalTransform() noexcept;
