@@ -90,11 +90,11 @@ Game::~Game()
 
 void Game::LoadShaders()
 {
-	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"VertexShader.cso").c_str());
-	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"PixelShader.cso").c_str());
-	m_pixelShaderNormal = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"normalPS.cso").c_str());
-	m_pixelShaderUV = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"uvPS.cso").c_str());
-	m_pixelShaderCustom = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"customPS.cso").c_str());
+	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
+	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_flat.cso").c_str());
+	m_pixelShaderNormal = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_normal.cso").c_str());
+	m_pixelShaderUV = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_uv.cso").c_str());
+	m_pixelShaderCustom = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_custom.cso").c_str());
 }
 
 // recursively position entites around each other

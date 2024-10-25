@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Shaders">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;hlsl;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="imgui">
       <UniqueIdentifier>{4d7a4ab0-58bd-43f8-b4e7-3a76500c23f6}</UniqueIdentifier>
     </Filter>
@@ -24,6 +20,10 @@
     </Filter>
     <Filter Include="SimpleShader\impl">
       <UniqueIdentifier>{a656a12d-9e24-4337-84cd-ea4745309f19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;hlsl;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -175,20 +175,31 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="shaders/PixelShader.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="forward_ps_custom.hlsl">
+      <Filter>shaders</Filter>
     </FxCompile>
-    <FxCompile Include="shaders/VertexShader.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="forward_ps_flat.hlsl">
+      <Filter>shaders</Filter>
     </FxCompile>
-    <FxCompile Include="uvPS.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="forward_ps_normal.hlsl">
+      <Filter>shaders</Filter>
     </FxCompile>
-    <FxCompile Include="normalPS.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="forward_ps_phong.hlsl">
+      <Filter>shaders</Filter>
     </FxCompile>
-    <FxCompile Include="customPS.hlsl">
-      <Filter>Shaders</Filter>
+    <FxCompile Include="forward_ps_uv.hlsl">
+      <Filter>shaders</Filter>
     </FxCompile>
+    <FxCompile Include="forward_vs_base.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="forward_vertex_to_pixel.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="phong.hlsli">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

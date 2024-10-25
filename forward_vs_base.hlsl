@@ -1,4 +1,4 @@
-#include "forward_rasterized_data.hlsli"
+#include "forward_vertex_to_pixel.hlsli"
 
 struct VertexShaderInput
 { 
