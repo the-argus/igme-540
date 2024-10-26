@@ -70,6 +70,6 @@ private:
 
 	std::array<ggp::Light, MAX_LIGHTS> m_lights;
 
-	static constexpr DirectX::XMFLOAT4 ambientColor = { 0.1f, 0.0f, 0.0f, 1.f };
+	DirectX::XMFLOAT4 m_ambientColor = { 0.1f, 0.0f, 0.0f, 1.f };
 };
 

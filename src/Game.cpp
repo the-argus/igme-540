@@ -343,6 +343,8 @@ void Game::BuildUI() noexcept
 {
 	ImGui::Begin("debug menu");
 
+	ImGui::Text("Press F to move camera");
+
 	ImGui::Text("Framerate: %f", ImGui::GetIO().Framerate);
 	ImGui::Text("Window pixel dimensions: %d / %d", Window::Width(), Window::Height());
 	ImGui::ColorEdit4("Background Color", m_backgroundColor.data(), 0);
@@ -387,6 +389,15 @@ void Game::BuildUI() noexcept
 	const char* last = m_lastTypedStrings.empty() ? "NO STRING ENTERED" : m_lastTypedStrings.back().c_str();
 	if (ImGui::Button("Print the last entered word", { 200, 50 }))
 		printf("last word: %s\n", last);
+
+	for (size_t i = 0; i < m_lights.size(); ++i) {
+		std::array<char, 64> buf;
+		int bytes_printed = std::snprintf(buf.data(), buf.size(), "light %zu", i);
+		gassert(bytes_printed < buf.size());
+		ImGui::ColorEdit3(buf.data(), &m_lights[i].color.x);
+	}
+
+	ImGui::ColorEdit3("Ambient Color", &m_ambientColor.x);
 
 	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
 	{
@@ -477,7 +488,7 @@ void Game::Draw(float deltaTime, float totalTime)
 
 			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
 			ps->SetFloat("roughness", entity.GetMaterial()->GetRoughness());
-			ps->SetFloat4("ambient", ambientColor);
+			ps->SetFloat4("ambient", m_ambientColor);
 			ps->SetFloat3("cameraPosition", camera.GetTransform().GetPosition());
 			ps->SetFloat("totalTime", totalTime);
 			ps->SetData("lights", m_lights.data(), u32(m_lights.size() * sizeof(Light)));

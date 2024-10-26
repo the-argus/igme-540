@@ -53,7 +53,7 @@ void ggp::Camera::Update(f32 dt) noexcept
 		delta = XMVectorMultiply(VectorSplat(16), delta);
 		UpdateOrbital(dt, XMVectorAdd(m_transform.LoadPosition(), delta));
 	}
-	else
+	else if (Input::KeyDown('F'))
 	{
 		UpdateNoClip(dt);
 	}
