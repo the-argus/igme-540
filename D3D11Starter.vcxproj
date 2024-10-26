@@ -200,6 +200,7 @@
     <ClInclude Include="src\include\Entity.h" />
     <ClInclude Include="src\include\errors.h" />
     <ClInclude Include="src\include\ggp_math.h" />
+    <ClInclude Include="src\include\Light.h" />
     <ClInclude Include="src\include\Material.h" />
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
@@ -247,6 +248,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="forward_vertex_to_pixel.hlsli" />
+    <None Include="light.hlsli" />
     <None Include="phong.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -39,10 +39,67 @@ void Game::Initialize()
 	LoadShaders();
 
 	// group shaders and colors into materials
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), XMFLOAT4{0.5f, 0.5f, 1.f, 1.f}));
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), XMFLOAT4{1.f, 0.5f, 1.f, 1.f}));
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderUV.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
-	m_materials.emplace_back(std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderCustom.get(), XMFLOAT4{0.5f, 1.5f, 1.f, 1.f}));
+	m_materials[L"base"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
+		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
+		.roughness = 0.5f,
+		});
+	m_materials[L"phong"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
+		.roughness = 0.f,
+		});
+	m_materials[L"normal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+		.colorRGBA = {1.f, 0.5f, 1.f, 1.f},
+		.roughness = 1.f,
+		});
+	m_materials[L"uv"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
+		.roughness = 0.2f,
+		});
+	m_materials[L"custom"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
+		.roughness = 0.1f,
+		});
+
+	m_lights = {
+		Light{
+			.type = LIGHT_TYPE_DIRECTIONAL,
+			.direction = { 0.f, 0.f, 1.f },
+			.range = {},
+			.position = {},
+			.intensity = 1.f,
+			.color = { 1.f, 0.f, 0.f },
+		},
+		Light{
+			.type = LIGHT_TYPE_DIRECTIONAL,
+			.direction = { 0.f, 0.f, -1.f },
+			.range = {},
+			.position = {},
+			.intensity = 1.f,
+			.color = { 0.f, 0.f, 1.f },
+		},
+		Light{
+			.type = LIGHT_TYPE_DIRECTIONAL,
+			.direction = { 0.f, 1.f, 0.f },
+			.range = {},
+			.position = {},
+			.intensity = 1.f,
+			.color = { 0.f, 1.f, 0.f },
+		},
+		Light{
+			.type = LIGHT_TYPE_POINT,
+			.range = 30.f,
+			.position = { 1.f, 1.f, 1.f },
+			.intensity = 0.3f,
+			.color = { 1.f, 1.f, 1.f },
+		},
+		Light{
+			.type = LIGHT_TYPE_POINT,
+			.range = 30.f,
+			.position = { 2.f, -1.f, 1.f },
+			.intensity = 0.3f,
+			.color = { 1.f, 1.f, 1.f },
+		},
+	};
 
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
@@ -90,11 +147,22 @@ Game::~Game()
 
 void Game::LoadShaders()
 {
+	auto mkPixelShader = [](const wchar_t* unfixed) {
+		return std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(unfixed).c_str());
+		};
+
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
-	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_flat.cso").c_str());
-	m_pixelShaderNormal = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_normal.cso").c_str());
-	m_pixelShaderUV = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_uv.cso").c_str());
-	m_pixelShaderCustom = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_custom.cso").c_str());
+	m_pixelShaderPhong = mkPixelShader(L"forward_ps_phong.cso");
+	m_pixelShader = m_pixelShaderPhong;
+	m_pixelShaderNormal = m_pixelShaderPhong;
+	m_pixelShaderUV = m_pixelShaderPhong;
+	m_pixelShaderCustom = m_pixelShaderPhong;
+	/*
+	m_pixelShader = mkPixelShader(L"forward_ps_flat.cso");
+	m_pixelShaderNormal = mkPixelShader(L"forward_ps_normal.cso");
+	m_pixelShaderUV = mkPixelShader(L"forward_ps_uv.cso");
+	m_pixelShaderCustom = mkPixelShader(L"forward_ps_custom.cso");
+	*/
 }
 
 // recursively position entites around each other
@@ -111,7 +179,7 @@ static void PositionEntities(Transform t, u32 siblingCount = 1, u32 depth = 0, u
 		PositionEntities(s.value(), siblingCount, depth, length + 1);
 	}
 
-	XMFLOAT3 localPosition {};
+	XMFLOAT3 localPosition{};
 	// position the object around the Y axis
 	XMScalarSinCosEst(&localPosition.z, &localPosition.x, XM_2PI * (length / siblingCount));
 
@@ -137,18 +205,18 @@ void Game::CreateEntities()
 	Mesh* quad_double_sided = &m_alwaysLoadedMeshes[L"quad_double_sided.obj"];
 	Mesh* torus = &m_alwaysLoadedMeshes[L"torus.obj"];
 
-	Entity root(cube, m_materials[0].get());
+	Entity root(cube, m_materials[L"phong"].get());
 
-	Entity layer00(cube, m_materials[3].get(), root.GetTransform().AddChild());
-	Entity layer01(cube, m_materials[3].get(), root.GetTransform().AddChild());
+	Entity layer00(cube, m_materials[L"phong"].get(), root.GetTransform().AddChild());
+	Entity layer01(cube, m_materials[L"phong"].get(), root.GetTransform().AddChild());
 
-	Entity out1(helix, m_materials[0].get(), layer00.GetTransform().AddChild());
-	Entity out2(quad, m_materials[1].get(), layer00.GetTransform().AddChild());
-	Entity out3(sphere, m_materials[1].get(), layer00.GetTransform().AddChild());
+	Entity out1(helix, m_materials[L"phong"].get(), layer00.GetTransform().AddChild());
+	Entity out2(quad, m_materials[L"uv"].get(), layer00.GetTransform().AddChild());
+	Entity out3(sphere, m_materials[L"uv"].get(), layer00.GetTransform().AddChild());
 
-	Entity droplet1(quad_double_sided, m_materials[2].get(), out1.GetTransform().AddChild());
-	Entity droplet2(torus, m_materials[2].get(), out1.GetTransform().AddChild());
-	Entity droplet3(cube, m_materials[3].get(), out1.GetTransform().AddChild());
+	Entity droplet1(quad_double_sided, m_materials[L"custom"].get(), out1.GetTransform().AddChild());
+	Entity droplet2(torus, m_materials[L"custom"].get(), out1.GetTransform().AddChild());
+	Entity droplet3(cube, m_materials[L"base"].get(), out1.GetTransform().AddChild());
 
 	// recursively position all the entites around each other
 	// PositionEntities(root.GetTransform());
@@ -165,7 +233,7 @@ void Game::CreateEntities()
 
 	for (int i = 0; i < m_entities.size(); ++i) {
 		f32 yOffset = m_entities[i].GetTransform().GetParent() ? -1.f : 0.f;
-		m_entities[i].GetTransform().SetLocalPosition({ f32(i) * 2.f, yOffset, 0.f});
+		m_entities[i].GetTransform().SetLocalPosition({ f32(i) * 2.f, yOffset, 0.f });
 	}
 }
 
@@ -405,9 +473,14 @@ void Game::Draw(float deltaTime, float totalTime)
 			vs->SetMatrix4x4("world", *entity.GetTransform().GetWorldMatrixPtr());
 			vs->SetMatrix4x4("view", *camera.GetViewMatrix());
 			vs->SetMatrix4x4("projection", *camera.GetProjectionMatrix());
+			vs->SetMatrix4x4("worldInverseTranspose", *entity.GetTransform().GetWorldInverseTransposeMatrixPtr());
 
 			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
+			ps->SetFloat("roughness", entity.GetMaterial()->GetRoughness());
+			ps->SetFloat4("ambient", ambientColor);
+			ps->SetFloat3("cameraPosition", camera.GetTransform().GetPosition());
 			ps->SetFloat("totalTime", totalTime);
+			ps->SetData("lights", m_lights.data(), u32(m_lights.size() * sizeof(Light)));
 
 			vs->CopyAllBufferData();
 			ps->CopyAllBufferData();

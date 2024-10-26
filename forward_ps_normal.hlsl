@@ -3,7 +3,10 @@
 cbuffer ExternalData : register(b0)
 {
     float4 colorTint;
+    float3 cameraPosition;
     float totalTime;
+    float roughness;
+    float ambient;
 }
 
 float4 main(ForwardVertexToPixel input) : SV_TARGET

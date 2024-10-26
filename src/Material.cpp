@@ -1,7 +1,9 @@
 #include "Material.h"
 
-ggp::Material::Material(SimpleVertexShader* vertexShader, SimplePixelShader* pixelShader, DirectX::XMFLOAT4 color) noexcept
-	:m_color(color),
+using namespace ggp;
+
+Material::Material(SimpleVertexShader* vertexShader, SimplePixelShader* pixelShader, const Options& options) noexcept :
+	m_data(options),
 	m_vertexShader(vertexShader),
 	m_pixelShader(pixelShader)
 {

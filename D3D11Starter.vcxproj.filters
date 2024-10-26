@@ -173,6 +173,9 @@
     <ClInclude Include="src\include\Material.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\include\Light.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="forward_ps_custom.hlsl">
@@ -199,6 +202,9 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="phong.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="light.hlsli">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

@@ -13,6 +13,7 @@
 #include "Mesh.h"
 #include "Entity.h"
 #include "Camera.h"
+#include "Light.h"
 #include "ggp_com_pointer.h"
 
 class Game
@@ -53,7 +54,7 @@ private:
 	bool m_demoWindowVisible = false;
 
 	std::unordered_map<std::wstring, ggp::Mesh> m_alwaysLoadedMeshes;
-	std::vector<std::unique_ptr<ggp::Material>> m_materials;
+	std::unordered_map<std::wstring, std::unique_ptr<ggp::Material>> m_materials;
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
 
@@ -62,8 +63,13 @@ private:
 
 	std::shared_ptr<SimpleVertexShader> m_vertexShader;
 	std::shared_ptr<SimplePixelShader> m_pixelShader;
+	std::shared_ptr<SimplePixelShader> m_pixelShaderPhong;
 	std::shared_ptr<SimplePixelShader> m_pixelShaderNormal;
 	std::shared_ptr<SimplePixelShader> m_pixelShaderUV;
 	std::shared_ptr<SimplePixelShader> m_pixelShaderCustom;
+
+	std::array<ggp::Light, MAX_LIGHTS> m_lights;
+
+	static constexpr DirectX::XMFLOAT4 ambientColor = { 0.1f, 0.0f, 0.0f, 1.f };
 };
 
