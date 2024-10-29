@@ -12,6 +12,7 @@
 #include "imgui_impl_win32.h"
 
 #include <DirectXMath.h>
+#include <WICTextureLoader.h>
 
 #include <algorithm>
 
@@ -100,6 +101,16 @@ void Game::Initialize()
 			.color = { 1.f, 1.f, 1.f },
 		},
 	};
+
+	com_p<ID3D11Resource> texture;
+	com_p<ID3D11ShaderResourceView> srv;
+	auto result = CreateWICTextureFromFile(
+		Graphics::Device.Get(),
+		Graphics::Context.Get(),
+		FixPath(L"../../assets/example_textures/brokentiles.png").c_str(),
+		texture.GetAddressOf(), srv.GetAddressOf());
+	gassert(result == S_OK);
+	gassert(srv.Get() != nullptr);
 
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();

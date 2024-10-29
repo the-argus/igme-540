@@ -13,6 +13,8 @@ cbuffer ExternalData : register(b0)
     Light lights[MAX_LIGHTS];
 }
 
+SamplerState basicSampler : register(s0);
+Texture2D surfaceColorTexture : register(t0);
 
 float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
