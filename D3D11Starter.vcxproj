@@ -199,6 +199,7 @@
     <ClInclude Include="src\include\ConstantBuffers.h" />
     <ClInclude Include="src\include\Entity.h" />
     <ClInclude Include="src\include\errors.h" />
+    <ClInclude Include="src\include\ggp_dict.h" />
     <ClInclude Include="src\include\ggp_math.h" />
     <ClInclude Include="src\include\Light.h" />
     <ClInclude Include="src\include\Material.h" />

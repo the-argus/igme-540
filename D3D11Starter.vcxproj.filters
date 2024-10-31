@@ -176,6 +176,9 @@
     <ClInclude Include="src\include\Light.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\include\ggp_dict.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="forward_ps_custom.hlsl">

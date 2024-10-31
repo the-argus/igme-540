@@ -15,6 +15,7 @@
 #include "Camera.h"
 #include "Light.h"
 #include "ggp_com_pointer.h"
+#include "ggp_dict.h"
 
 class Game
 {
@@ -53,8 +54,10 @@ private:
 	static constexpr size_t maxStrings = 3;
 	bool m_demoWindowVisible = false;
 
-	std::unordered_map<std::wstring, ggp::Mesh> m_alwaysLoadedMeshes;
-	std::unordered_map<std::wstring, std::unique_ptr<ggp::Material>> m_materials;
+	ggp::dict<ggp::Mesh> m_alwaysLoadedMeshes;
+	ggp::dict<std::unique_ptr<ggp::Material>> m_materials;
+	ggp::dict<ggp::com_p<ID3D11ShaderResourceView>> m_textureViews;
+	ggp::com_p<ID3D11SamplerState> m_defaultSampler;
 	std::vector<ggp::Entity> m_entities;
 	ggp::TransformHierarchy* m_transformHierarchy;
 

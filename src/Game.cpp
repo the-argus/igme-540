@@ -39,24 +39,91 @@ void Game::Initialize()
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
 
+	// load textures
+	{
+		// relative to assets/example_textures folder
+		constexpr std::array exampleTextures{
+			"brokentiles",
+			"brokentiles_specular",
+			"rustymetal",
+			"rustymetal_specular",
+			"tiles",
+			"tiles_specular",
+		};
+
+		for (const auto& exampleTexName : exampleTextures) {
+			com_p<ID3D11ShaderResourceView> srv;
+			const auto wideName = std::wstring(exampleTexName, exampleTexName + std::strlen(exampleTexName));
+			const auto path = std::wstring(L"../../assets/example_textures/") + wideName + std::wstring(L".png");
+			const auto result = CreateWICTextureFromFile(
+				Graphics::Device.Get(),
+				Graphics::Context.Get(),
+				FixPath(path).c_str(),
+				nullptr, srv.GetAddressOf());
+			gassert(result == S_OK);
+			gassert(srv);
+			m_textureViews.insert({ exampleTexName, srv });
+		}
+	}
+
+	// create default sampler
+	{
+		D3D11_SAMPLER_DESC samplerDescription{
+			.Filter = D3D11_FILTER_ANISOTROPIC,
+			.AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
+			.AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
+			.AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
+			.MaxAnisotropy = 4,
+			.MaxLOD = D3D11_FLOAT32_MAX,
+		};
+
+		const auto createSamplerRes = Graphics::Device->CreateSamplerState(&samplerDescription, m_defaultSampler.GetAddressOf());
+		gassert(createSamplerRes == S_OK);
+		gassert(m_defaultSampler);
+	}
+
 	// group shaders and colors into materials
-	m_materials[L"base"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
+	m_materials["base"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
 		.roughness = 0.5f,
 		});
-	m_materials[L"phong"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+	m_materials["phong"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 0.f,
+		.roughness = 1.f,
+		.samplerStates = {{"basicSampler", m_defaultSampler}},
+		.textureViews = {
+			{"surfaceColorTexture", m_textureViews.at("brokentiles")},
+			{"specularTexture", m_textureViews.at("brokentiles_specular")},
+		},
 		});
-	m_materials[L"normal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+	m_materials["tiles"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
+		.roughness = 1.f,
+		.uvOffset = { 0.5f, 0.5f },
+		.samplerStates = {{"basicSampler", m_defaultSampler}},
+		.textureViews = {
+			{"surfaceColorTexture", m_textureViews.at("tiles")},
+			{"specularTexture", m_textureViews.at("tiles_specular")},
+		},
+		});
+	m_materials["rustymetal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
+		.roughness = 1.f,
+		.samplerStates = {{"basicSampler", m_defaultSampler}},
+		.textureViews = {
+			{"surfaceColorTexture", m_textureViews.at("rustymetal")},
+			{"specularTexture", m_textureViews.at("rustymetal_specular")},
+		},
+		});
+	m_materials["normal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
 		.colorRGBA = {1.f, 0.5f, 1.f, 1.f},
 		.roughness = 1.f,
 		});
-	m_materials[L"uv"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+	m_materials["uv"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderUV.get(), Material::Options{
 		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
 		.roughness = 0.2f,
 		});
-	m_materials[L"custom"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
+	m_materials["custom"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderCustom.get(), Material::Options{
 		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
 		.roughness = 0.1f,
 		});
@@ -101,16 +168,6 @@ void Game::Initialize()
 			.color = { 1.f, 1.f, 1.f },
 		},
 	};
-
-	com_p<ID3D11Resource> texture;
-	com_p<ID3D11ShaderResourceView> srv;
-	auto result = CreateWICTextureFromFile(
-		Graphics::Device.Get(),
-		Graphics::Context.Get(),
-		FixPath(L"../../assets/example_textures/brokentiles.png").c_str(),
-		texture.GetAddressOf(), srv.GetAddressOf());
-	gassert(result == S_OK);
-	gassert(srv.Get() != nullptr);
 
 	CreateGeometry();
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
@@ -164,16 +221,10 @@ void Game::LoadShaders()
 
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
 	m_pixelShaderPhong = mkPixelShader(L"forward_ps_phong.cso");
-	m_pixelShader = m_pixelShaderPhong;
-	m_pixelShaderNormal = m_pixelShaderPhong;
-	m_pixelShaderUV = m_pixelShaderPhong;
-	m_pixelShaderCustom = m_pixelShaderPhong;
-	/*
 	m_pixelShader = mkPixelShader(L"forward_ps_flat.cso");
 	m_pixelShaderNormal = mkPixelShader(L"forward_ps_normal.cso");
 	m_pixelShaderUV = mkPixelShader(L"forward_ps_uv.cso");
 	m_pixelShaderCustom = mkPixelShader(L"forward_ps_custom.cso");
-	*/
 }
 
 // recursively position entites around each other
@@ -208,26 +259,26 @@ static void PositionEntities(Transform t, u32 siblingCount = 1, u32 depth = 0, u
 
 void Game::CreateEntities()
 {
-	Mesh* cube = &m_alwaysLoadedMeshes[L"cube.obj"];
-	Mesh* cylinder = &m_alwaysLoadedMeshes[L"cylinder.obj"];
-	Mesh* helix = &m_alwaysLoadedMeshes[L"helix.obj"];
-	Mesh* quad = &m_alwaysLoadedMeshes[L"quad.obj"];
-	Mesh* sphere = &m_alwaysLoadedMeshes[L"sphere.obj"];
-	Mesh* quad_double_sided = &m_alwaysLoadedMeshes[L"quad_double_sided.obj"];
-	Mesh* torus = &m_alwaysLoadedMeshes[L"torus.obj"];
+	Mesh* cube = &m_alwaysLoadedMeshes.at("cube.obj");
+	Mesh* cylinder = &m_alwaysLoadedMeshes.at("cylinder.obj");
+	Mesh* helix = &m_alwaysLoadedMeshes.at("helix.obj");
+	Mesh* quad = &m_alwaysLoadedMeshes.at("quad.obj");
+	Mesh* sphere = &m_alwaysLoadedMeshes.at("sphere.obj");
+	Mesh* quad_double_sided = &m_alwaysLoadedMeshes.at("quad_double_sided.obj");
+	Mesh* torus = &m_alwaysLoadedMeshes.at("torus.obj");
 
-	Entity root(cube, m_materials[L"phong"].get());
+	Entity root(cube, m_materials.at("phong").get());
 
-	Entity layer00(cube, m_materials[L"phong"].get(), root.GetTransform().AddChild());
-	Entity layer01(cube, m_materials[L"phong"].get(), root.GetTransform().AddChild());
+	Entity layer00(cube, m_materials.at("rustymetal").get(), root.GetTransform().AddChild());
+	Entity layer01(cube, m_materials.at("tiles").get(), root.GetTransform().AddChild());
 
-	Entity out1(helix, m_materials[L"phong"].get(), layer00.GetTransform().AddChild());
-	Entity out2(quad, m_materials[L"uv"].get(), layer00.GetTransform().AddChild());
-	Entity out3(sphere, m_materials[L"uv"].get(), layer00.GetTransform().AddChild());
+	Entity out1(helix, m_materials.at("phong").get(), layer00.GetTransform().AddChild());
+	Entity out2(quad, m_materials.at("tiles").get(), layer00.GetTransform().AddChild());
+	Entity out3(sphere, m_materials.at("rustymetal").get(), layer00.GetTransform().AddChild());
 
-	Entity droplet1(quad_double_sided, m_materials[L"custom"].get(), out1.GetTransform().AddChild());
-	Entity droplet2(torus, m_materials[L"custom"].get(), out1.GetTransform().AddChild());
-	Entity droplet3(cube, m_materials[L"base"].get(), out1.GetTransform().AddChild());
+	Entity droplet1(quad_double_sided, m_materials.at("rustymetal").get(), out1.GetTransform().AddChild());
+	Entity droplet2(torus, m_materials.at("tiles").get(), out1.GetTransform().AddChild());
+	Entity droplet3(cube, m_materials.at("rustymetal").get(), out1.GetTransform().AddChild());
 
 	// recursively position all the entites around each other
 	// PositionEntities(root.GetTransform());
@@ -248,23 +299,22 @@ void Game::CreateEntities()
 	}
 }
 
-// --------------------------------------------------------
-// Creates the geometry we're going to draw
-// --------------------------------------------------------
 void Game::CreateGeometry()
 {
 	constexpr std::array files = {
-		L"cube.obj",
-		L"cylinder.obj",
-		L"helix.obj",
-		L"quad.obj",
-		L"sphere.obj",
-		L"quad_double_sided.obj",
-		L"torus.obj",
+		"cube.obj",
+		"cylinder.obj",
+		"helix.obj",
+		"quad.obj",
+		"sphere.obj",
+		"quad_double_sided.obj",
+		"torus.obj",
 	};
 
 	for (auto* filename : files) {
-		auto [verts, indices] = Mesh::ReadOBJ(FixPath(std::wstring(L"../../assets/example_meshes/") + filename).c_str());
+		const auto wideFilename = std::wstring(filename, filename + std::strlen(filename));
+		const auto truePath = FixPath(std::wstring(L"../../assets/example_meshes/") + wideFilename);
+		auto [verts, indices] = Mesh::ReadOBJ(truePath.c_str());
 		m_alwaysLoadedMeshes[filename] = Mesh::UploadToGPU(verts, indices);
 	}
 }
@@ -503,6 +553,10 @@ void Game::Draw(float deltaTime, float totalTime)
 			ps->SetFloat3("cameraPosition", camera.GetTransform().GetPosition());
 			ps->SetFloat("totalTime", totalTime);
 			ps->SetData("lights", m_lights.data(), u32(m_lights.size() * sizeof(Light)));
+			ps->SetFloat2("uvOffset", entity.GetMaterial()->GetUVOffset());
+			ps->SetFloat2("uvScale", entity.GetMaterial()->GetUVScale());
+
+			entity.GetMaterial()->BindSRVsAndSamplerStates();
 
 			vs->CopyAllBufferData();
 			ps->CopyAllBufferData();
