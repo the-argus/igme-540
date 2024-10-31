@@ -89,7 +89,7 @@ void Game::Initialize()
 		});
 	m_materials["phong"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 1.f,
+		.roughness = 0.4f,
 		.samplerStates = {{"basicSampler", m_defaultSampler}},
 		.textureViews = {
 			{"surfaceColorTexture", m_textureViews.at("brokentiles")},
@@ -98,7 +98,7 @@ void Game::Initialize()
 		});
 	m_materials["tiles"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 1.f,
+		.roughness = 0.5f,
 		.uvOffset = { 0.5f, 0.5f },
 		.samplerStates = {{"basicSampler", m_defaultSampler}},
 		.textureViews = {
@@ -108,7 +108,7 @@ void Game::Initialize()
 		});
 	m_materials["rustymetal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 1.f,
+		.roughness = 0.3f,
 		.samplerStates = {{"basicSampler", m_defaultSampler}},
 		.textureViews = {
 			{"surfaceColorTexture", m_textureViews.at("rustymetal")},
@@ -117,15 +117,15 @@ void Game::Initialize()
 		});
 	m_materials["normal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
 		.colorRGBA = {1.f, 0.5f, 1.f, 1.f},
-		.roughness = 1.f,
+		.roughness = 0.5f,
 		});
 	m_materials["uv"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderUV.get(), Material::Options{
 		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
-		.roughness = 0.2f,
+		.roughness = 0.6f,
 		});
 	m_materials["custom"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderCustom.get(), Material::Options{
 		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
-		.roughness = 0.1f,
+		.roughness = 0.4f,
 		});
 
 	m_lights = {
