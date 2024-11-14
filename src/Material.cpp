@@ -12,18 +12,29 @@ Material::Material(SimpleVertexShader* vertexShader, SimplePixelShader* pixelSha
 	for (const auto& pair : m_data.samplerStates) {
 		gassert(pair.second);
 	}
+	// TODO: fallback textures for things
 	for (const auto& pair : m_data.textureViews) {
 		gassert(pair.second);
 	}
 #endif
 }
 
-void Material::AddTextureSRV(const char* name, const ggp::com_p<ID3D11ShaderResourceView>& srv)
+auto Material::PtrForSlot(TextureSlot slot) noexcept -> ggp::com_p<ID3D11ShaderResourceView>&
 {
-	gassert(!m_data.textureViews.contains(name));
+	switch (slot) {
+	case TextureSlot::Albedo:
+		return m_data.albedoTextureView;
+	case TextureSlot::Normal:
+		return m_data.normalTextureView;
+	case TextureSlot::Specular:
+		return m_data.specularTextureView;
+	}
+}
+
+void Material::SetTextureView(TextureSlot slot, const ggp::com_p<ID3D11ShaderResourceView>& srv)
+{
 	gassert(srv);
-	gassert(name);
-	m_data.textureViews.insert({name, srv});
+	PtrForSlot(slot) = srv;
 }
 
 void Material::AddSampler(const char* name, const ggp::com_p<ID3D11SamplerState>& sampler)
@@ -36,9 +47,10 @@ void Material::AddSampler(const char* name, const ggp::com_p<ID3D11SamplerState>
 
 void Material::BindSRVsAndSamplerStates() const
 {
-	for (const auto& texView : m_data.textureViews) {
-		m_pixelShader->SetShaderResourceView(texView.first, texView.second);
-	}
+	m_pixelShader->SetShaderResourceView("albedoTexture", m_data.albedoTextureView);
+	m_pixelShader->SetShaderResourceView("normalTexture", m_data.normalTextureView);
+	m_pixelShader->SetShaderResourceView("specularTexture", m_data.specularTextureView);
+
 	for (const auto& samplerState : m_data.samplerStates) {
 		m_pixelShader->SetSamplerState(samplerState.first, samplerState.second);
 	}

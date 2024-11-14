@@ -41,7 +41,7 @@ void Game::Initialize()
 
 	// load textures
 	{
-		// relative to assets/example_textures folder
+		// relative to assets/example_textures/normal_examples folder
 		constexpr std::array exampleTextures{
 			"brokentiles",
 			"brokentiles_specular",
@@ -215,16 +215,8 @@ Game::~Game()
 
 void Game::LoadShaders()
 {
-	auto mkPixelShader = [](const wchar_t* unfixed) {
-		return std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(unfixed).c_str());
-		};
-
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
-	m_pixelShaderPhong = mkPixelShader(L"forward_ps_pbr.cso");
-	m_pixelShader = mkPixelShader(L"forward_ps_flat.cso");
-	m_pixelShaderNormal = mkPixelShader(L"forward_ps_normal.cso");
-	m_pixelShaderUV = mkPixelShader(L"forward_ps_uv.cso");
-	m_pixelShaderCustom = mkPixelShader(L"forward_ps_custom.cso");
+	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_pbr.cso").c_str());
 }
 
 // recursively position entites around each other

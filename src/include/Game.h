@@ -66,10 +66,6 @@ private:
 
 	std::shared_ptr<SimpleVertexShader> m_vertexShader;
 	std::shared_ptr<SimplePixelShader> m_pixelShader;
-	std::shared_ptr<SimplePixelShader> m_pixelShaderPhong;
-	std::shared_ptr<SimplePixelShader> m_pixelShaderNormal;
-	std::shared_ptr<SimplePixelShader> m_pixelShaderUV;
-	std::shared_ptr<SimplePixelShader> m_pixelShaderCustom;
 
 	std::array<ggp::Light, MAX_LIGHTS> m_lights;
 
