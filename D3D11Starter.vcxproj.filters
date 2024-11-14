@@ -190,7 +190,7 @@
     <FxCompile Include="forward_ps_normal.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
-    <FxCompile Include="forward_ps_phong.hlsl">
+    <FxCompile Include="forward_ps_pbr.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="forward_ps_uv.hlsl">

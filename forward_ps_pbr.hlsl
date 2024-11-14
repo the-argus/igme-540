@@ -18,14 +18,27 @@ cbuffer ExternalData : register(b0)
 SamplerState basicSampler : register(s0);
 Texture2D surfaceColorTexture : register(t0);
 Texture2D specularTexture : register(t1);
+// Texture2D normalTexture : register(t2);
 
 float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
     input.normal = normalize(input.normal);
+    input.tangent = normalize(input.tangent);
     input.uv += uvOffset;
     input.uv *= uvScale;
     const float3 surfaceColor = (surfaceColorTexture.Sample(basicSampler, input.uv) * colorTint).rgb;
     const float specularStrength = specularTexture.Sample(basicSampler, input.uv).r;
+   
+    // perform normal mapping on input normal
+    {
+        const float3 unpackedNormal = float3(0, 0, 1); // normalize(normalTexture.Sample(basicSampler, input.uv).rgb * 2 - 1);
+        // grandt-schmidt orthonormalize against normal
+        const float3 T = normalize(input.tangent - input.normal * dot(input.tangent, input.normal));
+        const float3 B = cross(T, input.normal);
+        const float3x3 TBN = float3x3(T, B, input.normal);
+        input.normal = mul(TBN, unpackedNormal);
+    }
+    
     float3 total = ambient.rgb * surfaceColor;
     const float3 dirToCamera = normalize(cameraPosition - input.worldPosition);
     for (int i = 0; i < MAX_LIGHTS; ++i)

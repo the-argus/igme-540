@@ -24,6 +24,7 @@ ForwardVertexToPixel main(VertexShaderInput input)
     output.screenPosition = mul(wvp, float4(input.position, 1.0f));
     output.worldPosition = mul(world, float4(input.position, 1.0f)).xyz;
     output.normal = mul((float3x3) worldInverseTranspose, input.normal);
+    output.tangent = mul((float3x3) world, input.normal);
     output.uv = input.uv;
 
 	// to pixel shader

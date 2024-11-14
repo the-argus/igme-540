@@ -220,7 +220,7 @@ void Game::LoadShaders()
 		};
 
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
-	m_pixelShaderPhong = mkPixelShader(L"forward_ps_phong.cso");
+	m_pixelShaderPhong = mkPixelShader(L"forward_ps_pbr.cso");
 	m_pixelShader = mkPixelShader(L"forward_ps_flat.cso");
 	m_pixelShaderNormal = mkPixelShader(L"forward_ps_normal.cso");
 	m_pixelShaderUV = mkPixelShader(L"forward_ps_uv.cso");

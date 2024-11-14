@@ -10,7 +10,7 @@ template <typename T>
 using span = std::span<T>;
 
 Mesh::Mesh(span<Vertex> vertices, span<u32> indices) noexcept :
-	m_vertexBuffer(UploadVertexBuffer(vertices)),
+	m_vertexBuffer(UploadVertexBuffer(AddTangents(vertices, indices))),
 	m_indexBuffer(UploadIndexBuffer(indices)),
 	m_numIndices(indices.size()),
 	m_numVertices(vertices.size())
@@ -337,17 +337,13 @@ auto Mesh::ReadOBJ(const wchar_t* filename) noexcept -> std::tuple<unique_vertic
 //
 // - Be sure to call this BEFORE creating your D3D vertex/index buffers
 // --------------------------------------------------------
-void Mesh::CalculateTangents() noexcept
+span<Vertex> Mesh::AddTangents(span<Vertex> verts, span<const u32> indices) noexcept
 {
-	// void Mesh::CalculateTangents(Vertex * verts, int numVerts, unsigned int* indices, int numIndices)
-		// Reset tangents
-	for (int i = 0; i < numVerts; i++)
-	{
-		verts[i].Tangent = XMFLOAT3(0, 0, 0);
-	}
+	for (auto& v : verts)
+		v.Tangent = {};
 
 	// Calculate tangents one whole triangle at a time
-	for (int i = 0; i < numIndices;)
+	for (size_t i = 0; i < indices.size();)
 	{
 		// Grab indices and vertices of first triangle
 		unsigned int i1 = indices[i++];
@@ -395,11 +391,11 @@ void Mesh::CalculateTangents() noexcept
 	}
 
 	// Ensure all of the tangents are orthogonal to the normals
-	for (int i = 0; i < numVerts; i++)
+	for (auto& v : verts)
 	{
 		// Grab the two vectors
-		XMVECTOR normal = XMLoadFloat3(&verts[i].Normal);
-		XMVECTOR tangent = XMLoadFloat3(&verts[i].Tangent);
+		XMVECTOR normal = XMLoadFloat3(&v.Normal);
+		XMVECTOR tangent = XMLoadFloat3(&v.Tangent);
 
 		// Use Gram-Schmidt orthonormalize to ensure
 		// the normal and tangent are exactly 90 degrees apart
@@ -407,6 +403,8 @@ void Mesh::CalculateTangents() noexcept
 			tangent - normal * XMVector3Dot(normal, tangent));
 
 		// Store the tangent
-		XMStoreFloat3(&verts[i].Tangent, tangent);
+		XMStoreFloat3(&v.Tangent, tangent);
 	}
+
+	return verts;
 }
