@@ -48,6 +48,7 @@ namespace ggp
 		inline u64 GetVertexCount() const noexcept { return m_numVertices; }
 
 	private:
+		void CalculateTangents() noexcept;
 		// initialize a vertex buffer handle
 		com_p<ID3D11Buffer> UploadVertexBuffer(std::span<Vertex> verts) noexcept;
 		// initialize an index buffer handle
