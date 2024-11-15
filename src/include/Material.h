@@ -6,13 +6,14 @@
 
 #include "short_numbers.h"
 #include "errors.h"
+#include "ggp_com_pointer.h"
 
 namespace ggp
 {
-	extern ID3D11SamplerState* defaultSamplerState;
-	extern ID3D11ShaderResourceView* defaultNormalTextureView;
-	extern ID3D11ShaderResourceView* defaultAlbedoTextureView;
-	extern ID3D11ShaderResourceView* defaultSpecularTextureView;
+	extern com_p<ID3D11SamplerState> defaultSamplerState;
+	extern com_p<ID3D11ShaderResourceView> defaultNormalTextureView;
+	extern com_p<ID3D11ShaderResourceView> defaultAlbedoTextureView;
+	extern com_p<ID3D11ShaderResourceView> defaultSpecularTextureView;
 	extern SimpleVertexShader* defaultVertexShader;
 	extern SimplePixelShader* defaultPixelShader;
 
@@ -26,10 +27,10 @@ namespace ggp
 			DirectX::XMFLOAT2 uvOffset;
 			DirectX::XMFLOAT2 uvScale = { 1.F, 1.F };
 
-			ID3D11SamplerState* samplerState = defaultSamplerState;
-			ID3D11ShaderResourceView* albedoTextureView = defaultAlbedoTextureView;
-			ID3D11ShaderResourceView* normalTextureView = defaultNormalTextureView;
-			ID3D11ShaderResourceView* specularTextureView = defaultSpecularTextureView;
+			ID3D11SamplerState* samplerState;
+			ID3D11ShaderResourceView* albedoTextureView;
+			ID3D11ShaderResourceView* normalTextureView;
+			ID3D11ShaderResourceView* specularTextureView;
 		};
 
 		struct ShaderVariableNames

@@ -25,12 +25,12 @@ using namespace DirectX;
 // externs declared in Material.h
 namespace ggp
 {
-	ID3D11SamplerState* defaultSamplerState = nullptr;
-	ID3D11ShaderResourceView* defaultNormalTextureView = nullptr;
-	ID3D11ShaderResourceView* defaultAlbedoTextureView = nullptr;
-	ID3D11ShaderResourceView* defaultSpecularTextureView = nullptr;
-	SimpleVertexShader* defaultVertexShader = nullptr;
-	SimplePixelShader* defaultPixelShader = nullptr;
+	com_p<ID3D11SamplerState> defaultSamplerState = {};
+	com_p<ID3D11ShaderResourceView> defaultNormalTextureView = {};
+	com_p<ID3D11ShaderResourceView> defaultAlbedoTextureView = {};
+	com_p<ID3D11ShaderResourceView> defaultSpecularTextureView = {};
+	SimpleVertexShader* defaultVertexShader = {};
+	SimplePixelShader* defaultPixelShader = {};
 }
 
 static const std::array lights = {
@@ -171,17 +171,20 @@ ggp::Game::~Game()
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
-	defaultPixelShader = nullptr;
-	defaultVertexShader = nullptr;
+	defaultPixelShader = {};
+	defaultVertexShader = {};
+	defaultAlbedoTextureView = nullptr;
+	defaultSpecularTextureView = nullptr;
+	defaultNormalTextureView = nullptr;
 }
 
 void ggp::Game::LoadTextures()
 {
 	// globally accessible fallback textures
 	constexpr auto defaultTextureDir = L"example_textures/fallback/";
-	LoadTexture(&defaultAlbedoTextureView, "missing_albedo", defaultTextureDir);
-	LoadTexture(&defaultNormalTextureView, "flat_normals", defaultTextureDir);
-	LoadTexture(&defaultSpecularTextureView, "no_specular", defaultTextureDir);
+	LoadTexture(defaultAlbedoTextureView.GetAddressOf(), "missing_albedo", defaultTextureDir);
+	LoadTexture(defaultNormalTextureView.GetAddressOf(), "flat_normals", defaultTextureDir);
+	LoadTexture(defaultSpecularTextureView.GetAddressOf(), "no_specular", defaultTextureDir);
 
 	constexpr std::array exampleTexturesWithSpecular{
 		"brokentiles",
@@ -237,7 +240,7 @@ void ggp::Game::CreateSamplers()
 		.AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
 		.MaxLOD = D3D11_FLOAT32_MAX,
 	};
-	const auto fallbackSamplerRes = Graphics::Device->CreateSamplerState(&fallbackSamplerDescription, &defaultSamplerState);
+	const auto fallbackSamplerRes = Graphics::Device->CreateSamplerState(&fallbackSamplerDescription, defaultSamplerState.GetAddressOf());
 	gassert(fallbackSamplerRes == S_OK);
 }
 

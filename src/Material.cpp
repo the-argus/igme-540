@@ -8,7 +8,10 @@ Material::Material(Options&& options, SimpleVertexShader* vertexShader, SimplePi
 	m_vertexShader(vertexShader ? vertexShader : defaultVertexShader),
 	m_pixelShader(pixelShader ? pixelShader : defaultPixelShader)
 {
-	m_data.samplerState = m_data.samplerState ? m_data.samplerState : defaultSamplerState;
+	m_data.samplerState = m_data.samplerState ? m_data.samplerState : defaultSamplerState.Get();
+	m_data.albedoTextureView = m_data.albedoTextureView ? m_data.albedoTextureView : defaultAlbedoTextureView.Get();
+	m_data.specularTextureView = m_data.specularTextureView ? m_data.specularTextureView : defaultSpecularTextureView.Get();
+	m_data.normalTextureView = m_data.normalTextureView ? m_data.normalTextureView : defaultNormalTextureView.Get();
 }
 
 void Material::BindTextureViewsAndSamplerStates(const ShaderVariableNames& varnames) const
@@ -24,8 +27,6 @@ void Material::BindTextureViewsAndSamplerStates(const ShaderVariableNames& varna
 	m_pixelShader->SetShaderResourceView(varnames.specularTexture, m_data.specularTextureView);
 
 	gassert(varnames.sampler);
-	if (m_data.samplerState == defaultSamplerState)
-		printf("default sampler in use\n");
 	gassert(m_data.samplerState);
 	m_pixelShader->SetSamplerState(varnames.sampler, m_data.samplerState);
 }

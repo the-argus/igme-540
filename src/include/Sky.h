@@ -29,7 +29,6 @@ namespace ggp
 		static com_p<ID3D11DepthStencilState> CreateDepthStencilStateThatKeepsDeepPixels() noexcept;
 		static com_p<ID3D11RasterizerState> CreateRasterizerStateThatDrawsBackfaces() noexcept;
 
-
 		struct LoadCubemapOptions {
 			const wchar_t* right;
 			const wchar_t* left;
