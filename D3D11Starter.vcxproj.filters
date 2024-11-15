@@ -90,6 +90,9 @@
     <ClCompile Include="src\Material.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Sky.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/include/Window.h">
@@ -179,6 +182,9 @@
     <ClInclude Include="src\include\ggp_dict.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\include\Sky.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="forward_ps_custom.hlsl">
@@ -188,6 +194,12 @@
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="forward_vs_base.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="skybox_vs.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="skybox_ps.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
   </ItemGroup>
@@ -202,5 +214,11 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="forward_vertex_shader_input.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="skybox_vertex_to_pixel.hlsli">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

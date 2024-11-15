@@ -14,6 +14,7 @@
 #include "Entity.h"
 #include "Camera.h"
 #include "Light.h"
+#include "Sky.h"
 #include "ggp_com_pointer.h"
 #include "ggp_dict.h"
 
@@ -39,6 +40,7 @@ namespace ggp
 		void CreateSamplers();
 		void CreateMaterials();
 		void LoadMeshes();
+		void LoadCubemapAndCreateSkybox();
 		void CreateEntities();
 		void UIBeginFrame(float deltaTime) noexcept;
 		void UIEndFrame() noexcept;
@@ -61,6 +63,8 @@ namespace ggp
 		std::unique_ptr<SimplePixelShader> m_pixelShader;
 
 		std::unique_ptr<std::array<Light, MAX_LIGHTS>> m_lights;
+		Sky::SharedResources m_skyboxResources;
+		std::unique_ptr<Sky> m_skybox;
 
 		DirectX::XMFLOAT4 m_ambientColor = { 0.1f, 0.0f, 0.0f, 1.f };
 	};

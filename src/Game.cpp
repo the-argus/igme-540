@@ -133,6 +133,7 @@ void ggp::Game::Initialize()
 	CreateSamplers();
 	CreateMaterials();
 	LoadMeshes();
+	LoadCubemapAndCreateSkybox();
 	// copy in initial state of lights from static variable
 	m_lights = std::make_unique<decltype(m_lights)::element_type>(lights);
 	// initialize transform hierarchy singleton, we have a member variable reference to it
@@ -320,6 +321,29 @@ void ggp::Game::LoadMeshes()
 	}
 }
 
+void ggp::Game::LoadCubemapAndCreateSkybox()
+{
+	// skybox resources is an owning object which we keep for the duration of the game that we want to have skyboxes (the whole game probs)
+	m_skyboxResources = Sky::SharedResources{
+		.depthStencilState = Sky::CreateDepthStencilStateThatKeepsDeepPixels(),
+		.rasterizerState = Sky::CreateRasterizerStateThatDrawsBackfaces(),
+		.skyMesh = m_meshes.at("cube.obj").get(),
+		.skyboxPixelShader = std::make_unique<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"skybox_ps.cso").c_str()),
+		.skyboxVertexShader = std::make_unique<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"skybox_vs.cso").c_str()),
+	};
+
+	m_textureViews["pinkCloudsSkybox"] = Sky::LoadCubemap(Sky::LoadCubemapOptions{
+		.right = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/right.png").c_str(),
+		.left = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/left.png").c_str(),
+		.up = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/up.png").c_str(),
+		.down = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/down.png").c_str(),
+		.front = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/front.png").c_str(),
+		.back = FixPath(L"../../assets/example_textures/skyboxes/pink_clouds/back.png").c_str(),
+		});
+
+	m_skybox = std::make_unique<Sky>(m_textureViews.at("pinkCloudsSkybox").Get(), m_defaultSampler.Get());
+}
+
 void ggp::Game::CreateEntities()
 {
 	Mesh* cube = m_meshes.at("cube.obj").get();
@@ -502,6 +526,8 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
+	gassert(m_activeCamera < m_cameras.size());
+	Camera& camera = *m_cameras[m_activeCamera];
 	for (Entity& entity : m_entities)
 	{
 		// activate entity's shaders
@@ -510,9 +536,6 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 
 		// send cb to shaders
 		{
-			gassert(m_activeCamera < m_cameras.size());
-			Camera& camera = *m_cameras[m_activeCamera];
-
 			auto* vs = entity.GetMaterial()->GetVertexShader();
 			auto* ps = entity.GetMaterial()->GetPixelShader();
 
@@ -542,6 +565,8 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 		}
 		entity.GetMesh()->BindBuffersAndDraw();
 	}
+
+	m_skybox->Draw(m_skyboxResources, *camera.GetViewMatrix(), *camera.GetProjectionMatrix());
 
 	// begun in Update()
 	UIEndFrame();
