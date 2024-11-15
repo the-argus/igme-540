@@ -10,6 +10,11 @@
 
 namespace ggp
 {
+	extern ID3D11SamplerState* defaultSamplerState;
+	extern ID3D11ShaderResourceView* defaultNormalTextureView;
+	extern ID3D11ShaderResourceView* defaultAlbedoTextureView;
+	extern ID3D11ShaderResourceView* defaultSpecularTextureView;
+
 	class Material
 	{
 	public:
@@ -26,11 +31,11 @@ namespace ggp
 			f32 roughness = 0.f;
 			DirectX::XMFLOAT2 uvOffset;
 			DirectX::XMFLOAT2 uvScale = { 1.F, 1.F };
-			dict<ggp::com_p<ID3D11SamplerState>> samplerStates;
 
-			ggp::com_p<ID3D11ShaderResourceView> albedoTextureView;
-			ggp::com_p<ID3D11ShaderResourceView> normalTextureView;
-			ggp::com_p<ID3D11ShaderResourceView> specularTextureView;
+			ID3D11SamplerState* samplerState;
+			ID3D11ShaderResourceView* albedoTextureView;
+			ID3D11ShaderResourceView* normalTextureView;
+			ID3D11ShaderResourceView* specularTextureView;
 		};
 
 		// materials always are constructed with valid color and shaders
@@ -41,9 +46,6 @@ namespace ggp
 		Material& operator=(const Material&) = default;
 		Material(Material&&) = default;
 		Material& operator=(Material&&) = default;
-
-		void SetTextureView(TextureSlot slot, const ggp::com_p<ID3D11ShaderResourceView>& srv);
-		void AddSampler(const char* name, const ggp::com_p<ID3D11SamplerState>& sampler);
 
 		void BindSRVsAndSamplerStates() const;
 
@@ -58,7 +60,7 @@ namespace ggp
 		inline void SetColor(f32 roughness) { m_data.roughness = roughness; }
 
 	private:
-		ggp::com_p<ID3D11ShaderResourceView>& PtrForSlot(TextureSlot) noexcept;
+		ID3D11ShaderResourceView*& PtrForSlot(TextureSlot) noexcept;
 
 		Options m_data;
 		SimpleVertexShader* m_vertexShader;

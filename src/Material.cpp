@@ -19,7 +19,7 @@ Material::Material(SimpleVertexShader* vertexShader, SimplePixelShader* pixelSha
 #endif
 }
 
-auto Material::PtrForSlot(TextureSlot slot) noexcept -> ggp::com_p<ID3D11ShaderResourceView>&
+auto Material::PtrForSlot(TextureSlot slot) noexcept -> ID3D11ShaderResourceView*&
 {
 	switch (slot) {
 	case TextureSlot::Albedo:
@@ -29,20 +29,6 @@ auto Material::PtrForSlot(TextureSlot slot) noexcept -> ggp::com_p<ID3D11ShaderR
 	case TextureSlot::Specular:
 		return m_data.specularTextureView;
 	}
-}
-
-void Material::SetTextureView(TextureSlot slot, const ggp::com_p<ID3D11ShaderResourceView>& srv)
-{
-	gassert(srv);
-	PtrForSlot(slot) = srv;
-}
-
-void Material::AddSampler(const char* name, const ggp::com_p<ID3D11SamplerState>& sampler)
-{
-	gassert(!m_data.samplerStates.contains(name));
-	gassert(sampler);
-	gassert(name);
-	m_data.samplerStates.insert({ name, sampler });
 }
 
 void Material::BindSRVsAndSamplerStates() const

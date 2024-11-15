@@ -20,29 +20,89 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #include <d3dcompiler.h>
 
-// For the DirectX Math library
 using namespace DirectX;
-using namespace ggp; // TODO: maybe just put Game in ggp namespace
 
-// --------------------------------------------------------
-// Called once per program, after the window and graphics API
-// are initialized but before the game loop begins
-// --------------------------------------------------------
-void Game::Initialize()
+// externs declared in Material.h
+ID3D11SamplerState* ggp::defaultSamplerState;
+ID3D11ShaderResourceView* ggp::defaultNormalTextureView;
+ID3D11ShaderResourceView* ggp::defaultAlbedoTextureView;
+ID3D11ShaderResourceView* ggp::defaultSpecularTextureView;
+
+// recursively position entites around each other
+static void PositionEntities(ggp::Transform t, u32 siblingCount = 1, u32 depth = 0, u32 length = 0)
+{
+	using namespace ggp;
+	if (auto c = t.GetFirstChild())
+	{
+		PositionEntities(c.value(), t.GetChildCount(), depth + 1, 0);
+	}
+
+	if (auto s = t.GetNextSibling())
+	{
+		gassert(siblingCount > 1, "there were not supposed to be siblings...");
+		PositionEntities(s.value(), siblingCount, depth, length + 1);
+	}
+
+	XMFLOAT3 localPosition{};
+	// position the object around the Y axis
+	XMScalarSinCosEst(&localPosition.z, &localPosition.x, XM_2PI * (length / siblingCount));
+
+	// every other set of children is positioned around X axis instead
+	//if (depth % 2)
+	//	std::swap(localPosition.z, localPosition.y);
+
+	// multiply distance by one times length + 1
+	XMVECTOR loaded = XMLoadFloat3(&localPosition);
+	// loaded = XMVectorMultiply(loaded, VectorSplat(length + 1));
+	loaded = XMVectorAdd(loaded, VectorSplat(2));
+
+	t.StoreLocalPosition(loaded);
+}
+
+static void SpinRecursive(float delta, ggp::Transform t)
+{
+	if (auto c = t.GetFirstChild())
+	{
+		SpinRecursive(delta, c.value());
+	}
+	if (auto s = t.GetNextSibling())
+	{
+		SpinRecursive(delta, s.value());
+	}
+
+	t.Rotate({ 0.f, 0.f, delta / 10.f });
+}
+
+static void LoadTexture(ID3D11ShaderResourceView** out_srv, const char* texturename, std::wstring assetsSubDir = L"example_textures/ ")
+{
+	using namespace ggp;
+	const auto wideName = std::wstring(texturename, texturename + std::strlen(texturename));
+	const auto path = std::wstring(L"../../assets/") + assetsSubDir + wideName + std::wstring(L".png");
+	const auto result = CreateWICTextureFromFile(
+		Graphics::Device.Get(),
+		Graphics::Context.Get(),
+		FixPath(path).c_str(),
+		nullptr, out_srv);
+	gassert(result == S_OK);
+}
+
+void ggp::Game::Initialize()
 {
 	// alloc framerate history buffer and fill with zeroes
 	m_framerateHistory = std::make_unique<decltype(m_framerateHistory)::element_type>();
 	std::fill(m_framerateHistory->begin(), m_framerateHistory->end(), 0.0f);
 
-	// Helper methods for loading shaders, creating some basic
-	// geometry to draw and some simple camera matrices.
-	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
 
 	// load textures
 	{
-		// relative to assets/example_textures/normal_examples folder
-		constexpr std::array exampleTextures{
+		// default textures
+		constexpr auto defaultTextureDir = L"example_textures/fallback/";
+		LoadTexture(&defaultAlbedoTextureView, "missing_albedo", defaultTextureDir);
+		LoadTexture(&defaultNormalTextureView, "flat_normals", defaultTextureDir);
+		LoadTexture(&defaultSpecularTextureView, "no_specular", defaultTextureDir);
+
+		constexpr std::array exampleSpecularTextures{
 			"brokentiles",
 			"brokentiles_specular",
 			"rustymetal",
@@ -51,24 +111,16 @@ void Game::Initialize()
 			"tiles_specular",
 		};
 
-		for (const auto& exampleTexName : exampleTextures) {
+		for (const auto& exampleTexName : exampleSpecularTextures) {
 			com_p<ID3D11ShaderResourceView> srv;
-			const auto wideName = std::wstring(exampleTexName, exampleTexName + std::strlen(exampleTexName));
-			const auto path = std::wstring(L"../../assets/example_textures/") + wideName + std::wstring(L".png");
-			const auto result = CreateWICTextureFromFile(
-				Graphics::Device.Get(),
-				Graphics::Context.Get(),
-				FixPath(path).c_str(),
-				nullptr, srv.GetAddressOf());
-			gassert(result == S_OK);
-			gassert(srv);
+			LoadTexture(srv.GetAddressOf(), exampleTexName, L"example_textures/specular_examples/");
 			m_textureViews.insert({ exampleTexName, srv });
 		}
 	}
 
 	// create default sampler
 	{
-		D3D11_SAMPLER_DESC samplerDescription{
+		constexpr D3D11_SAMPLER_DESC samplerDescription{
 			.Filter = D3D11_FILTER_ANISOTROPIC,
 			.AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
 			.AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
@@ -82,50 +134,45 @@ void Game::Initialize()
 		gassert(m_defaultSampler);
 	}
 
+	// create global default (fallback) sampler
+	{
+		constexpr D3D11_SAMPLER_DESC samplerDescription{
+			.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT,
+			.AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
+			.AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
+			.AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
+			.MaxLOD = D3D11_FLOAT32_MAX,
+		};
+		const auto createSamplerRes = Graphics::Device->CreateSamplerState(&samplerDescription, &defaultSamplerState);
+		gassert(createSamplerRes == S_OK);
+	}
+
 	// group shaders and colors into materials
 	m_materials["base"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
 		.roughness = 0.5f,
 		});
-	m_materials["phong"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+	m_materials["brokentiles"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
 		.roughness = 0.4f,
-		.samplerStates = {{"basicSampler", m_defaultSampler}},
-		.textureViews = {
-			{"surfaceColorTexture", m_textureViews.at("brokentiles")},
-			{"specularTexture", m_textureViews.at("brokentiles_specular")},
-		},
+		.samplerState = m_defaultSampler.Get(),
+		.albedoTextureView = m_textureViews.at("brokentiles").Get(),
+		.specularTextureView = m_textureViews.at("brokentiles_specular").Get(),
 		});
-	m_materials["tiles"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+	m_materials["tiles"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
 		.roughness = 0.5f,
 		.uvOffset = { 0.5f, 0.5f },
-		.samplerStates = {{"basicSampler", m_defaultSampler}},
-		.textureViews = {
-			{"surfaceColorTexture", m_textureViews.at("tiles")},
-			{"specularTexture", m_textureViews.at("tiles_specular")},
-		},
+		.samplerState = m_defaultSampler.Get(),
+		.albedoTextureView = m_textureViews.at("tiles").Get(),
+		.specularTextureView = m_textureViews.at("tiles_specular").Get(),
 		});
-	m_materials["rustymetal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderPhong.get(), Material::Options{
+	m_materials["rustymetal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShader.get(), Material::Options{
 		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
 		.roughness = 0.3f,
-		.samplerStates = {{"basicSampler", m_defaultSampler}},
-		.textureViews = {
-			{"surfaceColorTexture", m_textureViews.at("rustymetal")},
-			{"specularTexture", m_textureViews.at("rustymetal_specular")},
-		},
-		});
-	m_materials["normal"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderNormal.get(), Material::Options{
-		.colorRGBA = {1.f, 0.5f, 1.f, 1.f},
-		.roughness = 0.5f,
-		});
-	m_materials["uv"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderUV.get(), Material::Options{
-		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
-		.roughness = 0.6f,
-		});
-	m_materials["custom"] = std::make_unique<Material>(m_vertexShader.get(), m_pixelShaderCustom.get(), Material::Options{
-		.colorRGBA = {0.5f, 1.5f, 1.f, 1.f},
-		.roughness = 0.4f,
+		.samplerState = m_defaultSampler.Get(),
+		.albedoTextureView = m_textureViews.at("rustymetal").Get(),
+		.specularTextureView = m_textureViews.at("rustymetal_specular").Get(),
 		});
 
 	m_lights = {
@@ -204,7 +251,7 @@ void Game::Initialize()
 // Note: Using smart pointers means there probably won't
 //       be much to manually clean up here!
 // --------------------------------------------------------
-Game::~Game()
+ggp::Game::~Game()
 {
 	Transform::DestroyHierarchySingleton(&m_transformHierarchy);
 	ImGui_ImplDX11_Shutdown();
@@ -213,43 +260,13 @@ Game::~Game()
 }
 
 
-void Game::LoadShaders()
+void ggp::Game::LoadShaders()
 {
 	m_vertexShader = std::make_shared<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
 	m_pixelShader = std::make_shared<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_pbr.cso").c_str());
 }
 
-// recursively position entites around each other
-static void PositionEntities(Transform t, u32 siblingCount = 1, u32 depth = 0, u32 length = 0)
-{
-	if (auto c = t.GetFirstChild())
-	{
-		PositionEntities(c.value(), t.GetChildCount(), depth + 1, 0);
-	}
-
-	if (auto s = t.GetNextSibling())
-	{
-		gassert(siblingCount > 1, "there were not supposed to be siblings...");
-		PositionEntities(s.value(), siblingCount, depth, length + 1);
-	}
-
-	XMFLOAT3 localPosition{};
-	// position the object around the Y axis
-	XMScalarSinCosEst(&localPosition.z, &localPosition.x, XM_2PI * (length / siblingCount));
-
-	// every other set of children is positioned around X axis instead
-	//if (depth % 2)
-	//	std::swap(localPosition.z, localPosition.y);
-
-	// multiply distance by one times length + 1
-	XMVECTOR loaded = XMLoadFloat3(&localPosition);
-	// loaded = XMVectorMultiply(loaded, VectorSplat(length + 1));
-	loaded = XMVectorAdd(loaded, VectorSplat(2));
-
-	t.StoreLocalPosition(loaded);
-}
-
-void Game::CreateEntities()
+void ggp::Game::CreateEntities()
 {
 	Mesh* cube = &m_alwaysLoadedMeshes.at("cube.obj");
 	Mesh* cylinder = &m_alwaysLoadedMeshes.at("cylinder.obj");
@@ -291,7 +308,7 @@ void Game::CreateEntities()
 	}
 }
 
-void Game::CreateGeometry()
+void ggp::Game::CreateGeometry()
 {
 	constexpr std::array files = {
 		"cube.obj",
@@ -311,7 +328,7 @@ void Game::CreateGeometry()
 	}
 }
 
-void Game::UIBeginFrame(float deltaTime) noexcept
+void ggp::Game::UIBeginFrame(float deltaTime) noexcept
 {
 	// Feed fresh data to ImGui
 	ImGuiIO& io = ImGui::GetIO();
@@ -327,42 +344,20 @@ void Game::UIBeginFrame(float deltaTime) noexcept
 	Input::SetMouseCapture(io.WantCaptureMouse);
 }
 
-void Game::UIEndFrame() noexcept
+void ggp::Game::UIEndFrame() noexcept
 {
 	ImGui::Render(); // Turns this frame’s UI into renderable triangles
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
 }
 
-// --------------------------------------------------------
-// Handle resizing to match the new window size
-//  - Eventually, we'll want to update our 3D camera
-// --------------------------------------------------------
-void Game::OnResize()
+void ggp::Game::OnResize()
 {
 	if (!m_cameras.empty() && m_activeCamera < m_cameras.size())
 		m_cameras[m_activeCamera]->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
 }
 
-static void SpinRecursive(float delta, Transform t)
+void ggp::Game::Update(float deltaTime, float totalTime)
 {
-	if (auto c = t.GetFirstChild())
-	{
-		SpinRecursive(delta, c.value());
-	}
-	if (auto s = t.GetNextSibling())
-	{
-		SpinRecursive(delta, s.value());
-	}
-
-	t.Rotate({ 0.f, 0.f, delta / 10.f });
-}
-
-// --------------------------------------------------------
-// Update your game here - user input, move objects, AI, etc.
-// --------------------------------------------------------
-void Game::Update(float deltaTime, float totalTime)
-{
-	// Example input checking: Quit if the escape key is pressed
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
 
@@ -392,7 +387,7 @@ void Game::Update(float deltaTime, float totalTime)
 }
 
 
-void Game::BuildUI() noexcept
+void ggp::Game::BuildUI() noexcept
 {
 	ImGui::Begin("debug menu");
 
@@ -506,10 +501,7 @@ void Game::BuildUI() noexcept
 	ImGui::End();
 }
 
-// --------------------------------------------------------
-// Clear the screen, redraw everything, present to the user
-// --------------------------------------------------------
-void Game::Draw(float deltaTime, float totalTime)
+void ggp::Game::Draw(float deltaTime, float totalTime)
 {
 	// Frame START
 	// - These things should happen ONCE PER FRAME
