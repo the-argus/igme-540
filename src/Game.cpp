@@ -171,11 +171,14 @@ ggp::Game::~Game()
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
+	// non owning pointers which will be dangling references if not set to 0
 	defaultPixelShader = {};
 	defaultVertexShader = {};
+	// owning pointers which have global lifetime so they need to be explicitly destroyed to unload textures and samplers
 	defaultAlbedoTextureView = nullptr;
 	defaultSpecularTextureView = nullptr;
 	defaultNormalTextureView = nullptr;
+	defaultSamplerState = nullptr;
 }
 
 void ggp::Game::LoadTextures()
