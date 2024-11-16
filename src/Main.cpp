@@ -14,7 +14,7 @@ namespace
 	// A "global" game object that
 	// can be used in WinMain() and
 	// in our window resize callback
-	Game* game = 0;
+	ggp::Game* game = 0;
 
 	// A simple function to hook up 
 	// to the window for resize
@@ -58,7 +58,7 @@ int WINAPI WinMain(
 	bool vsync = false;
 
 	// The main application object
-	game = new Game();
+	game = new ggp::Game();
 
 	// Create the window and verify
 	HRESULT windowResult = Window::Create(

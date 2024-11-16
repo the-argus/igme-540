@@ -3,41 +3,29 @@
 
 using namespace ggp;
 
-Material::Material(SimpleVertexShader* vertexShader, SimplePixelShader* pixelShader, Options&& options) noexcept :
+Material::Material(Options&& options, SimpleVertexShader* vertexShader, SimplePixelShader* pixelShader) noexcept :
 	m_data(std::move(options)),
-	m_vertexShader(vertexShader),
-	m_pixelShader(pixelShader)
+	m_vertexShader(vertexShader ? vertexShader : defaultVertexShader),
+	m_pixelShader(pixelShader ? pixelShader : defaultPixelShader)
 {
-#if defined(_DEBUG) || defined(DEBUG)
-	for (const auto& pair : m_data.samplerStates) {
-		gassert(pair.second);
-	}
-	// TODO: fallback textures for things
-	for (const auto& pair : m_data.textureViews) {
-		gassert(pair.second);
-	}
-#endif
+	m_data.samplerState = m_data.samplerState ? m_data.samplerState : defaultSamplerState;
 }
 
-auto Material::PtrForSlot(TextureSlot slot) noexcept -> ID3D11ShaderResourceView*&
+void Material::BindTextureViewsAndSamplerStates(const ShaderVariableNames& varnames) const
 {
-	switch (slot) {
-	case TextureSlot::Albedo:
-		return m_data.albedoTextureView;
-	case TextureSlot::Normal:
-		return m_data.normalTextureView;
-	case TextureSlot::Specular:
-		return m_data.specularTextureView;
-	}
-}
+	gassert(varnames.albedoTexture);
+	gassert(m_data.albedoTextureView);
+	m_pixelShader->SetShaderResourceView(varnames.albedoTexture, m_data.albedoTextureView);
+	gassert(varnames.normalTexture);
+	gassert(m_data.normalTextureView);
+	m_pixelShader->SetShaderResourceView(varnames.normalTexture, m_data.normalTextureView);
+	gassert(varnames.specularTexture);
+	gassert(m_data.specularTextureView);
+	m_pixelShader->SetShaderResourceView(varnames.specularTexture, m_data.specularTextureView);
 
-void Material::BindSRVsAndSamplerStates() const
-{
-	m_pixelShader->SetShaderResourceView("albedoTexture", m_data.albedoTextureView);
-	m_pixelShader->SetShaderResourceView("normalTexture", m_data.normalTextureView);
-	m_pixelShader->SetShaderResourceView("specularTexture", m_data.specularTextureView);
-
-	for (const auto& samplerState : m_data.samplerStates) {
-		m_pixelShader->SetSamplerState(samplerState.first, samplerState.second);
-	}
+	gassert(varnames.sampler);
+	if (m_data.samplerState == defaultSamplerState)
+		printf("default sampler in use\n");
+	gassert(m_data.samplerState);
+	m_pixelShader->SetSamplerState(varnames.sampler, m_data.samplerState);
 }

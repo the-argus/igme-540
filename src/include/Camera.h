@@ -47,6 +47,8 @@ namespace ggp
 		inline Transform GetTransform() noexcept { return m_transform; }
 		inline f32 GetFov() noexcept { return m_fov; }
 
+		inline bool IsLocked() const noexcept { return m_isLocked; }
+
 	private:
 		void UpdateViewMatrix() noexcept;
 
@@ -63,6 +65,7 @@ namespace ggp
 		f32 m_near;
 		f32 m_far;
 		f32 m_moveSpeed = 1.f;
+		bool m_isLocked = false;
 		DirectX::XMFLOAT2 m_angles;
 	};
 }

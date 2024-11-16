@@ -46,6 +46,9 @@ void ggp::Camera::UpdateProjectionMatrix(f32 aspectRatio, u32 width, u32 height)
 
 void ggp::Camera::Update(f32 dt) noexcept
 {
+	if (Input::KeyPress('F'))
+		m_isLocked = !m_isLocked;
+
 	if (Input::MouseRightDown())
 	{
 		// orbit around a point 16 units in front of our face
@@ -53,7 +56,7 @@ void ggp::Camera::Update(f32 dt) noexcept
 		delta = XMVectorMultiply(VectorSplat(16), delta);
 		UpdateOrbital(dt, XMVectorAdd(m_transform.LoadPosition(), delta));
 	}
-	else if (Input::KeyDown('F'))
+	else if (!m_isLocked)
 	{
 		UpdateNoClip(dt);
 	}

@@ -11,35 +11,37 @@ cbuffer ExternalData : register(b0)
     float2 uvOffset;
     float totalTime;
     float roughness;
+    int useSpecular;
 
     Light lights[MAX_LIGHTS];
 }
 
-SamplerState basicSampler : register(s0);
-Texture2D surfaceColorTexture : register(t0);
+SamplerState textureSampler : register(s0);
+Texture2D albedoTexture : register(t0);
 Texture2D specularTexture : register(t1);
-// Texture2D normalTexture : register(t2);
+Texture2D normalTexture : register(t2);
 
 float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
-    input.normal = normalize(input.normal);
-    input.tangent = normalize(input.tangent);
     input.uv += uvOffset;
     input.uv *= uvScale;
-    const float3 surfaceColor = (surfaceColorTexture.Sample(basicSampler, input.uv) * colorTint).rgb;
-    const float specularStrength = specularTexture.Sample(basicSampler, input.uv).r;
    
     // perform normal mapping on input normal
     {
-        const float3 unpackedNormal = float3(0, 0, 1); // normalize(normalTexture.Sample(basicSampler, input.uv).rgb * 2 - 1);
+        const float3 unpackedNormal = normalize(normalTexture.Sample(textureSampler, input.uv).rgb * 2 - 1);
+        const float3 N = normalize(input.normal);
+        float3 T = normalize(input.tangent);
         // grandt-schmidt orthonormalize against normal
-        const float3 T = normalize(input.tangent - input.normal * dot(input.tangent, input.normal));
-        const float3 B = cross(T, input.normal);
-        const float3x3 TBN = float3x3(T, B, input.normal);
-        input.normal = mul(TBN, unpackedNormal);
+        T = normalize(T - N * dot(T, N));
+        const float3 B = cross(T, N);
+        const float3x3 TBN = float3x3(T, B, N);
+        input.normal = mul(unpackedNormal, TBN);
     }
+ 
+    const float3 surfaceColor = (albedoTexture.Sample(textureSampler, input.uv) * colorTint).rgb;
+    const float specularStrength = useSpecular ? specularTexture.Sample(textureSampler, input.uv).r : 1.f;
     
-    float3 total = ambient.rgb * surfaceColor;
+    float3 totalLight = ambient.rgb * surfaceColor;
     const float3 dirToCamera = normalize(cameraPosition - input.worldPosition);
     for (int i = 0; i < MAX_LIGHTS; ++i)
     {
@@ -66,8 +68,11 @@ float4 main(ForwardVertexToPixel input) : SV_TARGET
         }
 
         const float3 diffuseColor = saturate(dot(input.normal, -dirToLight)) * light.color * realIntensity * surfaceColor;
+       
+        // no specular if diffuse is 0
+        specularTerm *= any(diffuseColor);
 
-        total += diffuseColor + specularTerm;
+        totalLight += diffuseColor + specularTerm;
     }
-    return float4(total, 1.f);
+    return float4(totalLight, 1.f);
 }
