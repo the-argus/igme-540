@@ -10,7 +10,12 @@ Material::Material(Options&& options, SimpleVertexShader* vertexShader, SimplePi
 {
 	m_data.samplerState = m_data.samplerState ? m_data.samplerState : defaultSamplerState.Get();
 	m_data.albedoTextureView = m_data.albedoTextureView ? m_data.albedoTextureView : defaultAlbedoTextureView.Get();
-	m_data.specularTextureView = m_data.specularTextureView ? m_data.specularTextureView : defaultSpecularTextureView.Get();
+	if (!m_data.metalnessTextureView)
+	{
+		m_data.metalnessTextureView = m_data.isMetal
+			? defaultMetalnessTextureViewMetal.Get()
+			: defaultMetalnessTextureViewNonMetal.Get();
+	}
 	m_data.normalTextureView = m_data.normalTextureView ? m_data.normalTextureView : defaultNormalTextureView.Get();
 }
 
@@ -22,10 +27,23 @@ void Material::BindTextureViewsAndSamplerStates(const ShaderVariableNames& varna
 	gassert(varnames.normalTexture);
 	gassert(m_data.normalTextureView);
 	m_pixelShader->SetShaderResourceView(varnames.normalTexture, m_data.normalTextureView);
-	gassert(varnames.specularTexture);
-	gassert(m_data.specularTextureView);
-	m_pixelShader->SetShaderResourceView(varnames.specularTexture, m_data.specularTextureView);
 
+	gassert(varnames.metalnessTexture);
+	gassert(m_data.metalnessTextureView);
+	m_pixelShader->SetShaderResourceView(varnames.metalnessTexture, m_data.metalnessTextureView);
+
+	m_pixelShader->SetInt(varnames.roughnessEnabledInt, m_data.roughnessTextureView == nullptr);
+	if (m_data.roughnessTextureView)
+	{
+		gassert(varnames.roughnessTexture);
+		gassert(m_data.roughnessTextureView);
+		m_pixelShader->SetShaderResourceView(varnames.metalnessTexture, m_data.metalnessTextureView);
+	}
+	else
+	{
+		m_pixelShader->SetFloat(varnames.roughness, m_data.roughness);
+	}
+	
 	gassert(varnames.sampler);
 	gassert(m_data.samplerState);
 	m_pixelShader->SetSamplerState(varnames.sampler, m_data.samplerState);

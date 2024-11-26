@@ -11,9 +11,10 @@
 namespace ggp
 {
 	extern com_p<ID3D11SamplerState> defaultSamplerState;
-	extern com_p<ID3D11ShaderResourceView> defaultNormalTextureView;
 	extern com_p<ID3D11ShaderResourceView> defaultAlbedoTextureView;
-	extern com_p<ID3D11ShaderResourceView> defaultSpecularTextureView;
+	extern com_p<ID3D11ShaderResourceView> defaultNormalTextureView;
+	extern com_p<ID3D11ShaderResourceView> defaultMetalnessTextureViewMetal;
+	extern com_p<ID3D11ShaderResourceView> defaultMetalnessTextureViewNonMetal;
 	extern SimpleVertexShader* defaultVertexShader;
 	extern SimplePixelShader* defaultPixelShader;
 
@@ -23,14 +24,16 @@ namespace ggp
 		struct Options
 		{
 			DirectX::XMFLOAT4 colorRGBA = { 1.F, 1.F, 1.F, 1.F };
-			f32 roughness = 0.f;
+			f32 roughness = 1.f; // only takes effect if no roughness texture
+			i32 isMetal; // boolean, if not providing a metalness texture
 			DirectX::XMFLOAT2 uvOffset;
 			DirectX::XMFLOAT2 uvScale = { 1.F, 1.F };
 
 			ID3D11SamplerState* samplerState;
 			ID3D11ShaderResourceView* albedoTextureView;
 			ID3D11ShaderResourceView* normalTextureView;
-			ID3D11ShaderResourceView* specularTextureView;
+			ID3D11ShaderResourceView* roughnessTextureView;
+			ID3D11ShaderResourceView* metalnessTextureView;
 		};
 
 		struct ShaderVariableNames
@@ -38,7 +41,10 @@ namespace ggp
 			const char* sampler;
 			const char* albedoTexture;
 			const char* normalTexture;
-			const char* specularTexture;
+			const char* roughnessTexture;
+			const char* metalnessTexture;
+			const char* roughnessEnabledInt;
+			const char* roughness;
 		};
 
 		// materials always are constructed with valid color and shaders

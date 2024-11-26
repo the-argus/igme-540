@@ -65,8 +65,6 @@ namespace ggp
 		std::unique_ptr<std::array<Light, MAX_LIGHTS>> m_lights;
 		Sky::SharedResources m_skyboxResources;
 		std::unique_ptr<Sky> m_skybox;
-
-		DirectX::XMFLOAT4 m_ambientColor = { 0.1f, 0.0f, 0.0f, 1.f };
 	};
 }
 

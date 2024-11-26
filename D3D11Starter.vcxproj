@@ -248,7 +248,7 @@
     <None Include="forward_vertex_to_pixel.hlsli" />
     <None Include="light.hlsli" />
     <None Include="packages.config" />
-    <None Include="phong.hlsli" />
+    <None Include="pbr.hlsli" />
     <None Include="skybox_vertex_to_pixel.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

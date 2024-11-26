@@ -28,7 +28,8 @@ namespace ggp
 	com_p<ID3D11SamplerState> defaultSamplerState = {};
 	com_p<ID3D11ShaderResourceView> defaultNormalTextureView = {};
 	com_p<ID3D11ShaderResourceView> defaultAlbedoTextureView = {};
-	com_p<ID3D11ShaderResourceView> defaultSpecularTextureView = {};
+	com_p<ID3D11ShaderResourceView> defaultMetalnessTextureViewMetal = {};
+	com_p<ID3D11ShaderResourceView> defaultMetalnessTextureViewNonMetal = {};
 	SimpleVertexShader* defaultVertexShader = {};
 	SimplePixelShader* defaultPixelShader = {};
 }
@@ -36,27 +37,27 @@ namespace ggp
 static const std::array lights = {
 	ggp::Light{
 		.type = LIGHT_TYPE_DIRECTIONAL,
-		.direction = { 0.f, 0.f, 1.f },
+		.direction = { 0.f, -1.f, -1.f },
 		.intensity = 1.f,
-		.color = { 1.f, 0.f, 0.f },
+		.color = { 1.f, 1.f, 1.f },
 	},
 	ggp::Light{
 		.type = LIGHT_TYPE_DIRECTIONAL,
 		.direction = { 0.f, 0.f, -1.f },
-		.intensity = 1.f,
+		.intensity = 0.0f,
 		.color = { 0.f, 0.f, 1.f },
 	},
 	ggp::Light{
 		.type = LIGHT_TYPE_DIRECTIONAL,
 		.direction = { 0.f, 1.f, 0.f },
-		.intensity = 1.f,
+		.intensity = 0.0f,
 		.color = { 0.f, 1.f, 0.f },
 	},
 	ggp::Light{
 		.type = LIGHT_TYPE_POINT,
 		.range = 100.f,
 		.position = { 1.f, 3.f, 1.f },
-		.intensity = 1.0f,
+		.intensity = 0.7f,
 		.color = { 1.f, 1.f, 1.f },
 	},
 	ggp::Light{
@@ -176,7 +177,8 @@ ggp::Game::~Game()
 	defaultVertexShader = {};
 	// owning pointers which have global lifetime so they need to be explicitly destroyed to unload textures and samplers
 	defaultAlbedoTextureView = nullptr;
-	defaultSpecularTextureView = nullptr;
+	defaultMetalnessTextureViewMetal = nullptr;
+	defaultMetalnessTextureViewNonMetal = nullptr;
 	defaultNormalTextureView = nullptr;
 	defaultSamplerState = nullptr;
 }
@@ -187,36 +189,44 @@ void ggp::Game::LoadTextures()
 	constexpr auto defaultTextureDir = L"example_textures/fallback/";
 	LoadTexture(defaultAlbedoTextureView.GetAddressOf(), "missing_albedo", defaultTextureDir);
 	LoadTexture(defaultNormalTextureView.GetAddressOf(), "flat_normals", defaultTextureDir);
-	LoadTexture(defaultSpecularTextureView.GetAddressOf(), "no_specular", defaultTextureDir);
+	LoadTexture(defaultMetalnessTextureViewMetal.GetAddressOf(), "metal", defaultTextureDir);
+	LoadTexture(defaultMetalnessTextureViewNonMetal.GetAddressOf(), "non_metal", defaultTextureDir);
 
-	constexpr std::array exampleTexturesWithSpecular{
-		"brokentiles",
-		"brokentiles_specular",
-		"rustymetal",
-		"rustymetal_specular",
-		"tiles",
-		"tiles_specular",
+	constexpr std::array textures{
+		"bronze_albedo",
+		"bronze_metal",
+		"bronze_normals",
+		"bronze_roughness",
+		"cobblestone_albedo",
+		"cobblestone_metal",
+		"cobblestone_normals",
+		"cobblestone_roughness",
+		"floor_albedo",
+		"floor_metal",
+		"floor_normals",
+		"floor_roughness",
+		"paint_albedo",
+		"paint_metal",
+		"paint_normals",
+		"paint_roughness",
+		"rough_albedo",
+		"rough_metal",
+		"rough_normals",
+		"rough_roughness",
+		"scratched_albedo",
+		"scratched_metal",
+		"scratched_normals",
+		"scratched_roughness",
+		"wood_albedo",
+		"wood_metal",
+		"wood_normals",
+		"wood_roughness",
 	};
 
-	for (const auto& exampleTexName : exampleTexturesWithSpecular) {
+	for (const auto& name : textures) {
 		com_p<ID3D11ShaderResourceView> srv;
-		LoadTexture(srv.GetAddressOf(), exampleTexName, L"example_textures/specular_examples/");
-		m_textureViews.insert({ exampleTexName, srv });
-	}
-
-	constexpr std::array exampleTexturesWithNormals{
-		"cobblestone",
-		"cobblestone_normals",
-		"cushion",
-		"cushion_normals",
-		"rock",
-		"rock_normals",
-	}
-	;
-	for (const auto& exampleTexName : exampleTexturesWithNormals) {
-		com_p<ID3D11ShaderResourceView> srv;
-		LoadTexture(srv.GetAddressOf(), exampleTexName, L"example_textures/normals_examples/");
-		m_textureViews.insert({ exampleTexName, srv });
+		LoadTexture(srv.GetAddressOf(), name, L"materials/");
+		m_textureViews.insert({ name, srv });
 	}
 }
 
@@ -257,53 +267,55 @@ void ggp::Game::LoadShaders()
 
 void ggp::Game::CreateMaterials()
 {
-	m_materials["base"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
+	m_materials["missing"] = std::make_unique<Material>(Material::Options{
 		.roughness = 0.5f,
 		});
-	m_materials["brokentiles"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 0.4f,
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("brokentiles").Get(),
-		.specularTextureView = m_textureViews.at("brokentiles_specular").Get(),
+	m_materials["flat_red_wood"] = std::make_unique<Material>(Material::Options{
+		.colorRGBA = {1.f, 0.5f, 0.5f, 1.f },
+		.roughness = 0.f,
+		.albedoTextureView = m_textureViews.at("wood_albedo").Get(),
 		});
-	m_materials["tiles"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 0.5f,
-		.uvOffset = { 0.5f, 0.5f },
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("tiles").Get(),
-		.specularTextureView = m_textureViews.at("tiles_specular").Get(),
-		});
-	m_materials["rustymetal"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {0.5f, 0.5f, 1.f, 1.f },
-		.roughness = 0.3f,
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("rustymetal").Get(),
-		.specularTextureView = m_textureViews.at("rustymetal_specular").Get(),
+	m_materials["bronze"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("bronze_albedo").Get(),
+		.normalTextureView = m_textureViews.at("bronze_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("bronze_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("bronze_metal").Get(),
 		});
 	m_materials["cobblestone"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {1.f, 1.f, 1.f, 1.f },
-		.roughness = 0.f,
-		.uvScale = { 0.5f, 0.5f },
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("cobblestone").Get(),
+		.albedoTextureView = m_textureViews.at("cobblestone_albedo").Get(),
 		.normalTextureView = m_textureViews.at("cobblestone_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("cobblestone_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("cobblestone_metal").Get(),
 		});
-	m_materials["cushion"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {1.f, 1.f, 1.f, 1.f },
-		.roughness = 0.3f,
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("cushion").Get(),
-		.normalTextureView = m_textureViews.at("cushion_normals").Get(),
+	m_materials["floor"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("floor_albedo").Get(),
+		.normalTextureView = m_textureViews.at("floor_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("floor_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("floor_metal").Get(),
 		});
-	m_materials["rock"] = std::make_unique<Material>(Material::Options{
-		.colorRGBA = {1.f, 1.f, 1.f, 1.f },
-		.roughness = 0.3f,
-		.samplerState = m_defaultSampler.Get(),
-		.albedoTextureView = m_textureViews.at("rock").Get(),
-		.normalTextureView = m_textureViews.at("rock_normals").Get(),
+	m_materials["paint"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("paint_albedo").Get(),
+		.normalTextureView = m_textureViews.at("paint_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("paint_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("paint_metal").Get(),
+		});
+	m_materials["rough"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("rough_albedo").Get(),
+		.normalTextureView = m_textureViews.at("rough_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("rough_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("rough_metal").Get(),
+		});
+	m_materials["scratched"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("scratched_albedo").Get(),
+		.normalTextureView = m_textureViews.at("scratched_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("scratched_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("scratched_metal").Get(),
+		});
+	m_materials["wood"] = std::make_unique<Material>(Material::Options{
+		.albedoTextureView = m_textureViews.at("wood_albedo").Get(),
+		.normalTextureView = m_textureViews.at("wood_normals").Get(),
+		.roughnessTextureView = m_textureViews.at("wood_roughness").Get(),
+		.metalnessTextureView = m_textureViews.at("wood_metal").Get(),
 		});
 }
 
@@ -360,18 +372,18 @@ void ggp::Game::CreateEntities()
 	Mesh* quad_double_sided = m_meshes.at("quad_double_sided.obj").get();
 	Mesh* torus = m_meshes.at("torus.obj").get();
 
-	Entity root(cube, m_materials.at("rock").get(), "rock cube");
+	Entity root(cube, m_materials.at("bronze").get(), "bronze cube");
 
-	Entity layer00(cube, m_materials.at("cushion").get(), root.GetTransform().AddChild(), "cushion cube");
-	Entity layer01(cube, m_materials.at("brokentiles").get(), root.GetTransform().AddChild(), "brokentiles cube");
+	Entity layer00(cube, m_materials.at("floor").get(), root.GetTransform().AddChild(), "floor cube");
+	Entity layer01(cube, m_materials.at("scratched").get(), root.GetTransform().AddChild(), "scratched cube");
 
 	Entity out1(helix, m_materials.at("cobblestone").get(), layer00.GetTransform().AddChild(), "cobblestone helix");
-	Entity out2(quad, m_materials.at("tiles").get(), layer00.GetTransform().AddChild(), "tiles quad");
-	Entity out3(sphere, m_materials.at("cushion").get(), layer00.GetTransform().AddChild(), "cushion sphere");
+	Entity out2(quad, m_materials.at("wood").get(), layer00.GetTransform().AddChild(), "wood quad");
+	Entity out3(sphere, m_materials.at("rough").get(), layer00.GetTransform().AddChild(), "rough sphere");
 
-	Entity droplet1(quad_double_sided, m_materials.at("rustymetal").get(), out1.GetTransform().AddChild(), "rustymetal double sided quad");
-	Entity droplet2(torus, m_materials.at("tiles").get(), out1.GetTransform().AddChild(), "tiles torus");
-	Entity droplet3(cube, m_materials.at("rustymetal").get(), out1.GetTransform().AddChild(), "rustymetal cube");
+	Entity droplet1(quad_double_sided, m_materials.at("paint").get(), out1.GetTransform().AddChild(), "paint double sided quad");
+	Entity droplet2(torus, m_materials.at("bronze").get(), out1.GetTransform().AddChild(), "bronze torus");
+	Entity droplet3(cube, m_materials.at("cobblestone").get(), out1.GetTransform().AddChild(), "cobblestone cube");
 
 	// recursively position all the entites around each other
 	// PositionEntities(root.GetTransform());
@@ -470,8 +482,6 @@ void ggp::Game::BuildUI() noexcept
 		ImGui::ColorEdit3(buf.data(), &(*m_lights)[i].color.x);
 	}
 
-	ImGui::ColorEdit3("Ambient Color", &m_ambientColor.x);
-
 	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
 	{
 		std::array<char, 64> buf;
@@ -552,7 +562,6 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 
 			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
 			ps->SetFloat("roughness", entity.GetMaterial()->GetRoughness());
-			ps->SetFloat4("ambient", m_ambientColor);
 			ps->SetFloat3("cameraPosition", camera.GetTransform().GetPosition());
 			ps->SetFloat("totalTime", totalTime);
 			ps->SetData("lights", m_lights->data(), u32(m_lights->size() * sizeof(Light)));
@@ -563,7 +572,10 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 				.sampler = "textureSampler",
 				.albedoTexture = "albedoTexture",
 				.normalTexture = "normalTexture",
-				.specularTexture = "specularTexture",
+				.roughnessTexture = "roughnessTexture",
+				.metalnessTexture = "metalnessTexture",
+				.roughnessEnabledInt = "useFlatRoughness",
+				.roughness = "roughness",
 				});
 
 			vs->CopyAllBufferData();

@@ -207,9 +207,6 @@
     <None Include="forward_vertex_to_pixel.hlsli">
       <Filter>shaders</Filter>
     </None>
-    <None Include="phong.hlsli">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="light.hlsli">
       <Filter>shaders</Filter>
     </None>
@@ -218,6 +215,9 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="skybox_vertex_to_pixel.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="pbr.hlsli">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
