@@ -155,6 +155,7 @@ namespace ggp
 		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local position of null transform");
 		gassert(!XMVector3IsNaN(pos));
+		gassert(!XMVector3IsInfinite(pos));
 		XMStoreFloat3(&GetPtr(h)->localPosition, pos);
 		MarkDirty(h._inner);
 	}
@@ -164,6 +165,7 @@ namespace ggp
 		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		gassert(!XMVector3IsNaN(angles));
+		gassert(!XMVector3IsInfinite(angles));
 		XMStoreFloat3(&GetPtr(h)->localRotation, angles);
 		MarkDirty(h._inner);
 	}
@@ -173,6 +175,7 @@ namespace ggp
 		using namespace DirectX;
 		gassert(!IsNull(h), "attempt to change the local euler angles of null transform");
 		gassert(!XMVector3IsNaN(scale));
+		gassert(!XMVector3IsInfinite(scale));
 		XMStoreFloat3(&GetPtr(h)->localScale, scale);
 		MarkDirty(h._inner);
 	}
@@ -191,34 +194,47 @@ namespace ggp
 
 		DirectX::XMMATRIX mat = XMLoadFloat4x4(&trans->worldMatrix);
 		const bool success = XMMatrixDecompose(outScale, outQuat, outPos, mat);
-		// this should never fail, hopefully the transform wrapper prevents matrix from ever becoming invalid or something
-		assert(success);
+		// TODO: switch to propagating by transform instead of by matrix, or implement a decompose w/ skew
+		// see https://gabormakesgames.com/blog_transforms_matrices.html
+		gassert(success, "failed to decompose matrix- probably skew introduced by non-uniform transform");
 	}
 
 	inline DirectX::XMVECTOR TransformHierarchy::LoadPosition(Handle h) const noexcept
 	{
-		DirectX::XMVECTOR pos;
-		DirectX::XMVECTOR quat;
-		DirectX::XMVECTOR scale;
+		using namespace DirectX;
+		XMVECTOR pos;
+		XMVECTOR quat;
+		XMVECTOR scale;
 		LoadMatrixDecomposed(h, &pos, &quat, &scale);
+		gassert(!XMVector3IsNaN(scale));
+		gassert(!XMVector3IsNaN(pos));
+		gassert(!XMVector3IsNaN(quat));
 		return pos;
 	}
 
 	inline DirectX::XMVECTOR TransformHierarchy::LoadEulerAngles(Handle h) const noexcept
 	{
+		using namespace DirectX;
 		gassert(!IsNull(h), "Attempt to load euler angles from null transform");
 		auto* trans = GetPtr(h);
 		if (trans->isDirty)
 			Clean(h._inner);
-		return ExtractEulersFromMatrix(&trans->worldMatrix);
+
+		XMVECTOR rot = ExtractEulersFromMatrix(&trans->worldMatrix);
+		gassert(!XMVector3IsNaN(rot));
+		return rot;
 	}
 
 	inline DirectX::XMVECTOR TransformHierarchy::LoadScale(Handle h) const noexcept
 	{
-		DirectX::XMVECTOR pos;
-		DirectX::XMVECTOR quat;
-		DirectX::XMVECTOR scale;
+		using namespace DirectX;
+		XMVECTOR pos;
+		XMVECTOR quat;
+		XMVECTOR scale;
 		LoadMatrixDecomposed(h, &pos, &quat, &scale);
+		gassert(!XMVector3IsNaN(scale));
+		gassert(!XMVector3IsNaN(pos));
+		gassert(!XMVector3IsNaN(quat));
 		return scale;
 	}
 
@@ -267,13 +283,17 @@ namespace ggp
 	inline void TH_VECTORCALL TransformHierarchy::StoreScale(Handle h, DirectX::FXMVECTOR scale) noexcept
 	{
 		using namespace DirectX;
+		gassert(!XMVector3IsNaN(scale));
 		// modifying global scale should modify local scale, but just do it in global space.
-		XMVECTOR delta; // innaccurate name
-		XMVECTOR localScale; // this name is innaccurate at first, actually quat
-		XMVECTOR globalScale; // what we care about
-		LoadMatrixDecomposed(h, &delta, &localScale, &globalScale);
-		localScale = LoadLocalScale(h); // okay now its accurate
-		delta = XMVectorSubtract(scale, globalScale); // difference between the target scale and our scale
-		StoreLocalScale(h, XMVectorAdd(localScale, delta)); // just add the needed difference to local
+		XMVECTOR outPos;
+		XMVECTOR outQuat;
+		XMVECTOR outScale;
+		LoadMatrixDecomposed(h, &outPos, &outQuat, &outScale);
+		gassert(!XMVector3IsNaN(outScale));
+		const XMVECTOR localScale = LoadLocalScale(h);
+		// difference between the target global scale and our global scale
+		const XMVECTOR delta = XMVectorSubtract(scale, outScale);
+		// just add the needed difference to local
+		StoreLocalScale(h, XMVectorAdd(localScale, delta));
 	}
 }

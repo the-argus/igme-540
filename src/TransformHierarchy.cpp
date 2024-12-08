@@ -143,45 +143,50 @@ auto ggp::TransformHierarchy::AddChild(Handle h) noexcept -> Handle
 
 void ggp::TransformHierarchy::Clean(u32 transform) const noexcept
 {
-	m_cleaningArena.clear();
+	gassert(m_cleaningArena.empty(), "recursive call to Clean()?");
 
-	i32 iter = transform;
-	while (true)
+	u32 iter = transform;
+	while (!IsNull(iter))
 	{
-		auto* iterPtr = GetPtr(iter);
 		m_cleaningArena.push_back(iter);
-		// stop traversing upwards once we meet a transform that is not dirty
-		if (!iterPtr->isDirty) [[unlikely]]
-			break;
-		if (IsNull(iterPtr->parentHandle)) [[unlikely]]
-			break;
-		iter = iterPtr->parentHandle;
+
+		InternalTransform* iterPtr = GetPtr(iter);
+		//if (!iterPtr->isDirty) [[unlikely]]
+		//	break;
+		iter = u32(iterPtr->parentHandle);
 	}
 
-	// weve built a stack of transforms, now multiply them downwards
+	// weve built a stack of transforms, now multiply them downwards (like down a family tree)
 	XMMATRIX mat = XMMatrixIdentity();
+	//for (const auto& i : m_cleaningArena | std::views::reverse)
 	for (auto i = m_cleaningArena.rbegin(); i != m_cleaningArena.rend(); ++i)
 	{
-		auto* ptr = GetPtr(*i);
-		if (!ptr->isDirty)
-		{
-			// not dirty, this is the first item and it should start the transform chain
-			mat = XMLoadFloat4x4(&ptr->worldMatrix);
-			continue;
-		}
-		XMVECTOR vecRegister = XMLoadFloat3(&ptr->localScale); // S
-		XMMATRIX local = XMMatrixScalingFromVector(vecRegister);
-		vecRegister = XMLoadFloat3(&ptr->localRotation); // R
-		local = XMMatrixMultiply(local, XMMatrixRotationRollPitchYawFromVector(vecRegister));
-		vecRegister = XMLoadFloat3(&ptr->localPosition); // T
-		local = XMMatrixMultiply(local, XMMatrixTranslationFromVector(vecRegister));
-		mat = XMMatrixMultiply(local, mat);
+		InternalTransform* const ptr = GetPtr(*i);
+
+		const XMVECTOR localPosition = XMLoadFloat3(&ptr->localPosition);
+		const XMVECTOR localRotation = XMQuaternionRotationRollPitchYawFromVector(XMLoadFloat3(&ptr->localRotation));
+		const XMVECTOR localScale = XMLoadFloat3(&ptr->localScale);
+		gassert(!XMVector3IsNaN(localPosition));
+		gassert(!XMVector3IsNaN(localRotation));
+		gassert(!XMVector3IsNaN(localScale));
+		
+		const XMMATRIX localTransform = XMMatrixAffineTransformation(
+			localScale,
+			g_XMZero.v,
+			localRotation,
+			localPosition);
+		gassert(!XMMatrixIsNaN(localTransform));
+	
+		mat = XMMatrixMultiply(localTransform, mat);
+		gassert(!XMMatrixIsNaN(mat));
+
 		// store the calculated global matrix for this object
 		XMStoreFloat4x4(&ptr->worldMatrix, mat);
 		XMStoreFloat4x4(&ptr->worldInverseTransposeMatrix, XMMatrixInverse(0, XMMatrixTranspose(mat)));
 		ptr->isDirty = false;
 	}
 	gassert(!GetPtr(transform)->isDirty);
+	m_cleaningArena.clear();
 }
 
 void ggp::TransformHierarchy::MarkDirty(u32 transform) const noexcept
@@ -262,18 +267,27 @@ DirectX::XMFLOAT3  ggp::TransformHierarchy::GetLocalScale(Handle h) const
 
 void  ggp::TransformHierarchy::SetLocalPosition(Handle h, DirectX::XMFLOAT3 position)
 {
+	using namespace DirectX;
+	gassert(!XMVector3IsNaN(XMLoadFloat3(&position)));
+	gassert(!XMVector3IsInfinite(XMLoadFloat3(&position)));
 	GetPtr(h)->localPosition = position;
 	MarkDirty(h._inner);
 }
 
 void  ggp::TransformHierarchy::SetLocalEulerAngles(Handle h, DirectX::XMFLOAT3 rotation)
 {
+	using namespace DirectX;
+	gassert(!XMVector3IsNaN(XMLoadFloat3(&rotation)));
+	gassert(!XMVector3IsInfinite(XMLoadFloat3(&rotation)));
 	GetPtr(h)->localRotation = rotation;
 	MarkDirty(h._inner);
 }
 
 void  ggp::TransformHierarchy::SetLocalScale(Handle h, DirectX::XMFLOAT3 scale)
 {
+	using namespace DirectX;
+	gassert(!XMVector3IsNaN(XMLoadFloat3(&scale)));
+	gassert(!XMVector3IsInfinite(XMLoadFloat3(&scale)));
 	GetPtr(h)->localScale = scale;
 	MarkDirty(h._inner);
 }

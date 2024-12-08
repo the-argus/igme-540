@@ -86,9 +86,9 @@ namespace ggp
 		void MoveRelative(float x, float y, float z);
 		void MoveRelative(DirectX::XMFLOAT3 offset);
 		inline void TH_VECTORCALL MoveRelativeVec(DirectX::FXMVECTOR offset) noexcept;
-		void Rotate(float pitch, float yaw, float roll);
-		void Rotate(DirectX::XMFLOAT3 rotation);
-		inline void TH_VECTORCALL RotateVec(DirectX::FXMVECTOR eulerAngles) noexcept;
+		void RotateLocal(float pitch, float yaw, float roll);
+		void RotateLocal(DirectX::XMFLOAT3 rotation);
+		inline void TH_VECTORCALL RotateLocalVec(DirectX::FXMVECTOR eulerAngles) noexcept;
 		void Scale(float x, float y, float z);
 		void Scale(DirectX::XMFLOAT3 scale);
 		inline void TH_VECTORCALL ScaleVec(DirectX::FXMVECTOR scale) noexcept;
@@ -222,7 +222,7 @@ namespace ggp
 		StoreLocalScale(XMVectorMultiply(scale, LoadLocalScale()));
 	}
 
-	inline void TH_VECTORCALL Transform::RotateVec(DirectX::FXMVECTOR eulerAngles) noexcept
+	inline void TH_VECTORCALL Transform::RotateLocalVec(DirectX::FXMVECTOR eulerAngles) noexcept
 	{
 		using namespace DirectX;
 		// convert to quat
@@ -230,12 +230,12 @@ namespace ggp
 		XMVECTOR diff = XMQuaternionRotationRollPitchYawFromVector(eulerAngles);
 
 		// actual rotation
-		current = XMQuaternionMultiply(current, diff);
+		current = XMQuaternionMultiply(diff, current);
 
 		// store, quattoeuler doesnt use simd
 		XMFLOAT4 q;
 		XMStoreFloat4(&q, current);
-		SetEulerAngles(QuatToEuler(q));
+		SetLocalEulerAngles(QuatToEuler(q));
 	}
 
 	inline void TH_VECTORCALL Transform::MoveAbsoluteLocalVec(DirectX::FXMVECTOR offset) noexcept

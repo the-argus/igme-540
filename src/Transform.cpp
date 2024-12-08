@@ -93,8 +93,8 @@ void ggp::Transform::MoveAbsolute(float x, float y, float z) { MoveAbsoluteVec(X
 void ggp::Transform::MoveAbsolute(DirectX::XMFLOAT3 offset) { MoveAbsoluteVec(XMLoadFloat3(&offset)); }
 void ggp::Transform::MoveAbsoluteLocal(float x, float y, float z) { MoveAbsoluteLocalVec(XMVectorSet(x, y, z, 0.f)); }
 void ggp::Transform::MoveAbsoluteLocal(DirectX::XMFLOAT3 offset) { MoveAbsoluteLocalVec(XMLoadFloat3(&offset)); }
-void ggp::Transform::Rotate(float pitch, float yaw, float roll) { RotateVec(XMVectorSet(pitch, yaw, roll, 0.f)); }
-void ggp::Transform::Rotate(DirectX::XMFLOAT3 rotation) { RotateVec(XMLoadFloat3(&rotation)); }
+void ggp::Transform::RotateLocal(float pitch, float yaw, float roll) { RotateLocalVec(XMVectorSet(pitch, yaw, roll, 0.f)); }
+void ggp::Transform::RotateLocal(DirectX::XMFLOAT3 rotation) { RotateLocalVec(XMLoadFloat3(&rotation)); }
 void ggp::Transform::Scale(float x, float y, float z) { ScaleVec(XMVectorSet(x, y, z, 0)); }
 void ggp::Transform::Scale(DirectX::XMFLOAT3 scale) { ScaleVec(XMLoadFloat3(&scale)); }
 void ggp::Transform::MoveRelative(float x, float y, float z) { MoveRelativeVec(XMVectorSet(x, y, z, 0.f)); }
