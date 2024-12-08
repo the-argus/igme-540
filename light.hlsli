@@ -22,7 +22,10 @@ struct Light
     float3 color;
     float spotInnerAngleRadians;
     float spotOuterAngleRadians;
-    float2 _padding;
+    int isShadowCaster;
+    float _padding;
+    float4x4 shadowView;
+    float4x4 shadowProjection;
 };
 
 float3 LightDirection(Light light, float3 worldPosition)

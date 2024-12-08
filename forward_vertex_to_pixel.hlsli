@@ -12,6 +12,7 @@ struct ForwardVertexToPixel
     float3 tangent			: TANGENT;
     float3 worldPosition    : WORLD_POSITION;
 	float2 uv				: TEXCOORD;
+    float4 shadowMapPos     : SHADOW_POSITION;
 };
 
 #endif

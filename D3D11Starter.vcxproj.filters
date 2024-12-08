@@ -202,6 +202,9 @@
     <FxCompile Include="skybox_ps.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
+    <FxCompile Include="shadowmap_vs.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="forward_vertex_to_pixel.hlsli">

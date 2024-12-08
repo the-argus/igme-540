@@ -6,6 +6,7 @@
 
 #include <DirectXMath.h>
 
+#include "Graphics.h"
 #include "short_numbers.h"
 
 #define LIGHT_TYPE_DIRECTIONAL (0)
@@ -26,6 +27,15 @@ namespace ggp
 		DirectX::XMFLOAT3 color;
 		f32 spotInnerAngleRadians;
 		f32 spotOuterAngleRadians;
-		DirectX::XMFLOAT2 _padding;
+		i32 isShadowCaster;
+		f32 _padding;
+		DirectX::XMFLOAT4X4 shadowView;
+		DirectX::XMFLOAT4X4 shadowProjection;
+	};
+
+	struct ShadowMapResources
+	{
+		ID3D11ShaderResourceView* shaderResourceView;
+		ID3D11DepthStencilView* depthStencilView;
 	};
 }

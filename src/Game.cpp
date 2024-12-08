@@ -40,30 +40,33 @@ static const std::array lights = {
 		.direction = { 0.f, -1.f, -1.f },
 		.intensity = 1.f,
 		.color = { 1.f, 1.f, 1.f },
-	},
-	ggp::Light{
-		.type = LIGHT_TYPE_DIRECTIONAL,
-		.direction = { 0.f, 0.f, -1.f },
-		.intensity = 0.0f,
-		.color = { 0.f, 0.f, 1.f },
-	},
-	ggp::Light{
-		.type = LIGHT_TYPE_DIRECTIONAL,
-		.direction = { 0.f, 1.f, 0.f },
-		.intensity = 0.0f,
-		.color = { 0.f, 1.f, 0.f },
+		.isShadowCaster = true,
 	},
 	ggp::Light{
 		.type = LIGHT_TYPE_POINT,
 		.range = 100.f,
-		.position = { 1.f, 3.f, 1.f },
-		.intensity = 0.7f,
+		.position = { -20.f, 3.f, 1.f },
+		.intensity = 0.3f,
 		.color = { 1.f, 1.f, 1.f },
 	},
 	ggp::Light{
 		.type = LIGHT_TYPE_POINT,
-		.range = 30.f,
-		.position = { 2.f, -1.f, 1.f },
+		.range = 100.f,
+		.position = { 20.f, 3.f, 1.f },
+		.intensity = 0.3f,
+		.color = { 1.f, 1.f, 1.f },
+	},
+	ggp::Light{
+		.type = LIGHT_TYPE_POINT,
+		.range = 100.f,
+		.position = { 1.f, 3.f, -5.f },
+		.intensity = 0.3f,
+		.color = { 1.f, 1.f, 1.f },
+	},
+	ggp::Light{
+		.type = LIGHT_TYPE_POINT,
+		.range = 100.f,
+		.position = { 1.f, 3.f, 5.f },
 		.intensity = 0.3f,
 		.color = { 1.f, 1.f, 1.f },
 	},
@@ -135,12 +138,31 @@ void ggp::Game::Initialize()
 {
 	LoadShaders();
 	LoadTextures();
+
+	// copy in initial state of lights from static variable
+	m_lights = std::make_unique<decltype(m_lights)::element_type>(lights);
+	m_shadowMapResources = std::make_unique<decltype(m_shadowMapResources)::element_type>();
+
+	CreateShadowMaps();
 	CreateSamplers();
 	CreateMaterials();
 	LoadMeshes();
 	LoadCubemapAndCreateSkybox();
-	// copy in initial state of lights from static variable
-	m_lights = std::make_unique<decltype(m_lights)::element_type>(lights);
+
+	{
+		constexpr D3D11_RASTERIZER_DESC shadowMapRasterizerStateDesc = {
+			.FillMode = D3D11_FILL_SOLID,
+			.CullMode = D3D11_CULL_BACK,
+			.DepthBias = 1000,
+			.SlopeScaledDepthBias = 1.0f,
+			.DepthClipEnable = true,
+		};
+
+		auto result = Graphics::Device->CreateRasterizerState(
+			&shadowMapRasterizerStateDesc, m_shadowMapRasterizerState.GetAddressOf());
+		gassert(result == S_OK);
+	}
+
 	// initialize transform hierarchy singleton, we have a member variable reference to it
 	m_transformHierarchy = Transform::CreateHierarchySingleton();
 	CreateEntities();
@@ -234,6 +256,82 @@ void ggp::Game::LoadTextures()
 	}
 }
 
+void ggp::Game::CreateShadowMaps()
+{
+	for (size_t i = 0; i < m_lights->size(); ++i) {
+		Light& light = (*m_lights)[i];
+		if (!light.isShadowCaster)
+			continue;
+		gassert(light.type == LIGHT_TYPE_DIRECTIONAL, "only directional lights support shadows rn");
+
+		const XMVECTOR lightDirection = XMLoadFloat3(&light.direction);
+		const XMMATRIX lightView = XMMatrixLookToLH(
+			XMVectorScale(lightDirection, -20), // Position: "Backing up" 20 units from origin
+			lightDirection, // Direction: light's direction
+			XMVectorSet(0, 1, 0, 0));
+		XMStoreFloat4x4(&light.shadowView, lightView);
+
+		const f32 lightProjectionSize = 70.0f;
+		const XMMATRIX lightProjection = XMMatrixOrthographicLH(
+			lightProjectionSize,
+			lightProjectionSize,
+			1.0f,
+			100.0f);
+		XMStoreFloat4x4(&light.shadowProjection, lightProjection);
+
+		constexpr D3D11_TEXTURE2D_DESC shadowDesc = {
+			.Width = shadowMapResolution,
+			.Height = shadowMapResolution,
+			.MipLevels = 1,
+			.ArraySize = 1,
+			.Format = DXGI_FORMAT_R32_TYPELESS,
+			.SampleDesc = {
+				.Count = 1,
+				.Quality = 0,
+			},
+			.Usage = D3D11_USAGE_DEFAULT,
+			.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE,
+			.CPUAccessFlags = 0,
+			.MiscFlags = 0,
+		};
+
+		com_p<ID3D11Texture2D> shadowTexture;
+		Graphics::Device->CreateTexture2D(&shadowDesc, 0, shadowTexture.GetAddressOf());
+
+		// Create the depth/stencil view
+		constexpr D3D11_DEPTH_STENCIL_VIEW_DESC shadowDSDesc = {
+			.Format = DXGI_FORMAT_D32_FLOAT,
+			.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
+			.Texture2D = {.MipSlice = 0 },
+		};
+		m_shadowMapDepths.emplace_back();
+		Graphics::Device->CreateDepthStencilView(
+			shadowTexture.Get(),
+			&shadowDSDesc,
+			m_shadowMapDepths.back().GetAddressOf());
+
+		// Create the SRV for the shadow map
+		constexpr D3D11_SHADER_RESOURCE_VIEW_DESC shadowSRVDesc = {
+			.Format = DXGI_FORMAT_R32_FLOAT,
+			.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
+			.Texture2D = {
+				.MostDetailedMip = 0,
+				.MipLevels = 1,
+			},
+		};
+		m_shadowMaps.emplace_back();
+		Graphics::Device->CreateShaderResourceView(
+			shadowTexture.Get(),
+			&shadowSRVDesc,
+			m_shadowMaps.back().GetAddressOf());
+
+		(*m_shadowMapResources)[i] = ShadowMapResources{ 
+			.shaderResourceView = m_shadowMaps.back().Get(),
+			.depthStencilView = m_shadowMapDepths.back().Get(),
+		};
+	}
+}
+
 void ggp::Game::CreateSamplers()
 {
 	// default sampler, anisotropic
@@ -259,12 +357,27 @@ void ggp::Game::CreateSamplers()
 	};
 	const auto fallbackSamplerRes = Graphics::Device->CreateSamplerState(&fallbackSamplerDescription, defaultSamplerState.GetAddressOf());
 	gassert(fallbackSamplerRes == S_OK);
+
+	constexpr D3D11_SAMPLER_DESC shadowMapSamplerDescription{
+		.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR,
+		.AddressU = D3D11_TEXTURE_ADDRESS_BORDER,
+		.AddressV = D3D11_TEXTURE_ADDRESS_BORDER,
+		.AddressW = D3D11_TEXTURE_ADDRESS_BORDER,
+		.ComparisonFunc = D3D11_COMPARISON_LESS,
+		.BorderColor = { 1.f, 1.f, 1.f, 1.f },
+	};
+	const auto shadowMapSamplerRes = Graphics::Device->CreateSamplerState(&shadowMapSamplerDescription, m_shadowMapSamplerState.GetAddressOf());
+	gassert(shadowMapSamplerRes == S_OK);
 }
 
 void ggp::Game::LoadShaders()
 {
-	m_vertexShader = std::make_unique<SimpleVertexShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
-	m_pixelShader = std::make_unique<SimplePixelShader>(Graphics::Device, Graphics::Context, FixPath(L"forward_ps_pbr.cso").c_str());
+	m_vertexShader = std::make_unique<SimpleVertexShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"forward_vs_base.cso").c_str());
+	m_pixelShader = std::make_unique<SimplePixelShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"forward_ps_pbr.cso").c_str());
+	m_shadowMapVertexShader = std::make_unique<SimpleVertexShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"shadowmap_vs.cso").c_str());
 	defaultPixelShader = m_pixelShader.get();
 	defaultVertexShader = m_vertexShader.get();
 }
@@ -485,7 +598,11 @@ void ggp::Game::BuildUI() noexcept
 		std::array<char, 64> buf;
 		int bytes_printed = std::snprintf(buf.data(), buf.size(), "light %zu", i);
 		gassert(bytes_printed < buf.size());
-		ImGui::ColorEdit3(buf.data(), &(*m_lights)[i].color.x);
+		Light& light = (*m_lights)[i];
+		ImGui::ColorEdit3(buf.data(), &light.color.x);
+		if (light.isShadowCaster) {
+			ImGui::Image((*m_shadowMapResources)[i]->shaderResourceView, { 512, 512 });
+		}
 	}
 
 	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
@@ -542,8 +659,57 @@ void ggp::Game::BuildUI() noexcept
 	ImGui::End();
 }
 
+void ggp::Game::RenderShadowMaps() noexcept
+{
+	// all shadow maps are the same size
+	D3D11_VIEWPORT viewport = {
+		.Width = (float)shadowMapResolution,
+		.Height = (float)shadowMapResolution,
+		.MaxDepth = 1.0f,
+	};
+	Graphics::Context->RSSetViewports(1, &viewport);
+	Graphics::Context->RSSetState(m_shadowMapRasterizerState.Get());
+
+	// render all entities for every shadow map
+	for (size_t i = 0; i < m_lights->size(); ++i) {
+		const Light& light = (*m_lights)[i];
+		if (!light.isShadowCaster)
+			continue;
+
+		// if this throws, shadow maps didnt get initialized properly
+		const ShadowMapResources& res = (*m_shadowMapResources)[i].value();
+
+		Graphics::Context->ClearDepthStencilView(res.depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+		ID3D11RenderTargetView* nullRTV {};
+		Graphics::Context->OMSetRenderTargets(1, &nullRTV, res.depthStencilView);
+		Graphics::Context->PSSetShader(nullptr, nullptr, 0);
+
+		m_shadowMapVertexShader->SetShader();
+		m_shadowMapVertexShader->SetMatrix4x4("view", light.shadowView);
+		m_shadowMapVertexShader->SetMatrix4x4("projection", light.shadowProjection);
+
+		for (auto& e : m_entities)
+		{
+			m_shadowMapVertexShader->SetMatrix4x4("world", *e.GetTransform().GetWorldMatrixPtr());
+			m_shadowMapVertexShader->CopyAllBufferData();
+			e.GetMesh()->BindBuffersAndDraw();
+		}
+	}
+
+	viewport.Width = f32(Window::Width());
+	viewport.Height = f32(Window::Height());
+	Graphics::Context->RSSetViewports(1, &viewport);
+	Graphics::Context->OMSetRenderTargets(
+		1,
+		Graphics::BackBufferRTV.GetAddressOf(),
+		Graphics::DepthBufferDSV.Get());
+	Graphics::Context->RSSetState(0);
+}
+
 void ggp::Game::Draw(float deltaTime, float totalTime)
 {
+	RenderShadowMaps();
+
 	// Clear the back buffer (erase what's on screen) and depth buffer
 	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -565,6 +731,8 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 			vs->SetMatrix4x4("view", *camera.GetViewMatrix());
 			vs->SetMatrix4x4("projection", *camera.GetProjectionMatrix());
 			vs->SetMatrix4x4("worldInverseTranspose", *entity.GetTransform().GetWorldInverseTransposeMatrixPtr());
+			vs->SetMatrix4x4("lightView", (*m_lights)[0].shadowView);
+			vs->SetMatrix4x4("lightProjection", (*m_lights)[0].shadowProjection);
 
 			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
 			ps->SetFloat("roughness", entity.GetMaterial()->GetRoughness());
@@ -583,6 +751,9 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 				.roughnessEnabledInt = "useFlatRoughness",
 				.roughness = "roughness",
 				});
+
+			ps->SetSamplerState("shadowSampler", m_shadowMapSamplerState);
+			ps->SetShaderResourceView("shadowMap", (*m_shadowMapResources)[0]->shaderResourceView);
 
 			vs->CopyAllBufferData();
 			ps->CopyAllBufferData();
@@ -608,6 +779,9 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 			Graphics::BackBufferRTV.GetAddressOf(),
 			Graphics::DepthBufferDSV.Get());
 	}
+
+	static ID3D11ShaderResourceView* nullSRVs[128] = {};
+	Graphics::Context->PSSetShaderResources(0, 128, nullSRVs);
 }
 
 

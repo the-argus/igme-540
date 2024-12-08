@@ -23,6 +23,9 @@ Texture2D roughnessTexture : register(t1);
 Texture2D normalTexture : register(t2);
 Texture2D metalnessTexture : register(t3);
 
+SamplerComparisonState shadowSampler : register(s1);
+Texture2D shadowMap : register(t4);
+
 float3 GammaUnCorrectAlbedoTexture(float3 sampled)
 {
     return pow(sampled, 2.2f);
@@ -30,8 +33,17 @@ float3 GammaUnCorrectAlbedoTexture(float3 sampled)
 
 float4 main(ForwardVertexToPixel input) : SV_TARGET
 {
+    input.shadowMapPos.xyz /= input.shadowMapPos.w;
     input.uv += uvOffset;
     input.uv *= uvScale;
+
+    float2 shadowUV = input.shadowMapPos.xy * 0.5f + 0.5f;
+    shadowUV.y = 1 - shadowUV.y;
+    float distToLight = input.shadowMapPos.z;
+    float shadowAmount = shadowMap.SampleCmpLevelZero(
+        shadowSampler,
+        shadowUV,
+        distToLight).r;
    
     // perform normal mapping on input normal
     {
@@ -55,6 +67,9 @@ float4 main(ForwardVertexToPixel input) : SV_TARGET
     for (int i = 0; i < MAX_LIGHTS; ++i)
     {
         const Light light = lights[i];
+        
+        const float shadowForLight = light.isShadowCaster ? shadowAmount : 1.0f;
+
         const float trueIntensity = LightAttenuation(light, input.worldPosition) * light.intensity;
         const float3 dirToLight = LightDirection(light, input.worldPosition);
         
@@ -62,7 +77,7 @@ float4 main(ForwardVertexToPixel input) : SV_TARGET
         const float3 specularTerm = MicrofacetBRDF(input.normal, dirToLight, dirToCamera, trueRoughness, specularColor, fresnel);
         const float3 diffuseTerm = DiffusePBR(input.normal, dirToLight);
         const float3 balancedDiff = DiffuseEnergyConserve(diffuseTerm, fresnel, metalness);
-        totalLight += (balancedDiff * surfaceColor + specularTerm) * trueIntensity * light.color;
+        totalLight += (balancedDiff * surfaceColor + specularTerm) * trueIntensity * light.color * shadowForLight;
     }
     return float4(pow(totalLight, 1.0f / 2.2f), 1.f);
 }

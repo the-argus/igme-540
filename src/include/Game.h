@@ -37,6 +37,7 @@ namespace ggp
 
 		void LoadShaders();
 		void LoadTextures();
+		void CreateShadowMaps();
 		void CreateSamplers();
 		void CreateMaterials();
 		void LoadMeshes();
@@ -45,6 +46,7 @@ namespace ggp
 		void UIBeginFrame(float deltaTime) noexcept;
 		void UIEndFrame() noexcept;
 		void BuildUI() noexcept;
+		void RenderShadowMaps() noexcept;
 
 		bool m_spinningEnabled = true;
 		std::array<float, 4> m_backgroundColor = { 0 };
@@ -63,6 +65,14 @@ namespace ggp
 		std::unique_ptr<SimplePixelShader> m_pixelShader;
 
 		std::unique_ptr<std::array<Light, MAX_LIGHTS>> m_lights;
+		static constexpr int shadowMapResolution = 2048;
+		std::unique_ptr<std::array<std::optional<ShadowMapResources>, MAX_LIGHTS>> m_shadowMapResources;
+		std::vector<ggp::com_p<ID3D11ShaderResourceView>> m_shadowMaps;
+		std::vector<ggp::com_p<ID3D11DepthStencilView>> m_shadowMapDepths;
+		ggp::com_p<ID3D11RasterizerState> m_shadowMapRasterizerState;
+		ggp::com_p<ID3D11SamplerState> m_shadowMapSamplerState;
+		std::unique_ptr<SimpleVertexShader> m_shadowMapVertexShader;
+
 		Sky::SharedResources m_skyboxResources;
 		std::unique_ptr<Sky> m_skybox;
 	};
