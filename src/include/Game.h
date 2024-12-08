@@ -46,7 +46,7 @@ namespace ggp
 		void UIEndFrame() noexcept;
 		void BuildUI() noexcept;
 
-		bool m_spinningEnabled = false;
+		bool m_spinningEnabled = true;
 		std::array<float, 4> m_backgroundColor = { 0 };
 
 		ggp::dict<std::unique_ptr<ggp::Mesh>> m_meshes;

@@ -92,7 +92,7 @@ void ggp::Camera::UpdateNoClip(f32 dt) noexcept
 	m_angles.y += Input::GetMouseXDelta() * m_sens;
 	m_angles.x = std::clamp(m_angles.x, DegToRad(-89.f), DegToRad(89.f));
 	m_angles.y = fmodf(m_angles.y, XM_2PI);
-	m_transform.SetEulerAngles({ m_angles.x, m_angles.y, 0.f });
+	m_transform.SetLocalEulerAngles({ m_angles.x, m_angles.y, 0.f });
 }
 
 void __vectorcall ggp::Camera::UpdateOrbital(f32 dt, DirectX::FXMVECTOR orbitCenter) noexcept

@@ -84,34 +84,38 @@ static void PositionEntities(ggp::Transform t, u32 siblingCount = 1, u32 depth =
 		PositionEntities(s.value(), siblingCount, depth, length + 1);
 	}
 
-	XMFLOAT3 localPosition{};
-	// position the object around the Y axis
-	XMScalarSinCosEst(&localPosition.z, &localPosition.x, XM_2PI * (length / siblingCount));
-
-	// every other set of children is positioned around X axis instead
-	//if (depth % 2)
-	//	std::swap(localPosition.z, localPosition.y);
-
-	// multiply distance by one times length + 1
-	XMVECTOR loaded = XMLoadFloat3(&localPosition);
-	// loaded = XMVectorMultiply(loaded, VectorSplat(length + 1));
-	loaded = XMVectorAdd(loaded, VectorSplat(2));
-
-	t.StoreLocalPosition(loaded);
+	t.SetLocalPosition({3 * f32(depth), f32(t.GetLocalPosition().y), 3 * f32(length)});
 }
 
-static void SpinRecursive(float delta, ggp::Transform t)
+static void SpinRecursive(float delta, float totalTime, ggp::Transform t, int numSiblings = 1, int depth = 0, int length = 0)
 {
 	if (auto c = t.GetFirstChild())
 	{
-		SpinRecursive(delta, c.value());
+		SpinRecursive(delta, totalTime, c.value(), t.GetChildCount(), depth + 1, 0);
 	}
 	if (auto s = t.GetNextSibling())
 	{
-		SpinRecursive(delta, s.value());
+		SpinRecursive(delta, totalTime, s.value(), numSiblings, depth, length + 1);
 	}
 
-	t.Rotate({ 0.f, 0.f, delta / 10.f });
+	const auto rotation = delta / (10);
+
+	if (t.GetParent() && length == 0) {
+		float scale = std::fmaxf(std::fabsf(std::cosf(totalTime + depth)), 0.1f);
+		// TODO: support non-uniform rotations
+		t.SetScale({ scale, scale, scale });
+	}
+
+	if (length == numSiblings - 1) {
+		if (depth % 2 == 0) {
+			t.RotateLocal({ 0.f, rotation, 0.f });
+		} else {
+			t.RotateLocal({ rotation, 0.f, 0.f });
+		}
+	}
+
+	if (t.GetParent())
+		t.RotateLocal({ 0.f, rotation * 5, 0.f });
 }
 
 static void LoadTexture(ID3D11ShaderResourceView** out_srv, const char* texturename, std::wstring assetsSubDir = L"example_textures/ ")
@@ -385,8 +389,10 @@ void ggp::Game::CreateEntities()
 	Entity droplet2(torus, m_materials.at("bronze").get(), out1.GetTransform().AddChild(), "bronze torus");
 	Entity droplet3(cube, m_materials.at("cobblestone").get(), out1.GetTransform().AddChild(), "cobblestone cube");
 
+	Entity floor(quad, m_materials.at("wood").get(),  "wood floor");
+
 	// recursively position all the entites around each other
-	// PositionEntities(root.GetTransform());
+	PositionEntities(root.GetTransform());
 
 	m_entities.push_back(root);
 	m_entities.push_back(layer00);
@@ -397,11 +403,11 @@ void ggp::Game::CreateEntities()
 	m_entities.push_back(droplet1);
 	m_entities.push_back(droplet2);
 	m_entities.push_back(droplet3);
+	m_entities.push_back(floor);
 
-	for (int i = 0; i < m_entities.size(); ++i) {
-		f32 yOffset = m_entities[i].GetTransform().GetParent() ? -1.f : 0.f;
-		m_entities[i].GetTransform().SetLocalPosition({ f32(i) * 2.f, yOffset, 0.f });
-	}
+	// floor has hardcoded position
+	floor.GetTransform().SetPosition({ 0, -5, 0 });
+	floor.GetTransform().SetScale({ 30, 1, 30 });
 }
 
 void ggp::Game::UIBeginFrame(float deltaTime) noexcept
@@ -440,7 +446,7 @@ void ggp::Game::Update(float deltaTime, float totalTime)
 	if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
-		SpinRecursive(deltaTime, root);
+		SpinRecursive(deltaTime, totalTime, root);
 	}
 
 	gassert(m_activeCamera < m_cameras.size());
