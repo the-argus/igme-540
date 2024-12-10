@@ -37,7 +37,6 @@ void Material::BindTextureViewsAndSamplerStates(const ShaderVariableNames& varna
 	{
 		gassert(varnames.roughnessTexture);
 		gassert(m_data.roughnessTextureView);
-		m_pixelShader->SetShaderResourceView(varnames.metalnessTexture, m_data.metalnessTextureView);
 	}
 	else
 	{
