@@ -173,6 +173,7 @@
     <ClCompile Include="src\BlockAllocator.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\Entity.cpp" />
+    <ClCompile Include="src\MapParser.cpp" />
     <ClCompile Include="src\Material.cpp" />
     <ClCompile Include="src\Mesh.cpp" />
     <ClCompile Include="src\Sky.cpp" />
@@ -203,6 +204,7 @@
     <ClInclude Include="src\include\ggp_dict.h" />
     <ClInclude Include="src\include\ggp_math.h" />
     <ClInclude Include="src\include\Light.h" />
+    <ClInclude Include="src\include\MapParser.h" />
     <ClInclude Include="src\include\Material.h" />
     <ClInclude Include="src\include\memory_map.h" />
     <ClInclude Include="src\include\memutils.h" />
