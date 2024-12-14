@@ -205,6 +205,12 @@
     <FxCompile Include="shadowmap_vs.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
+    <FxCompile Include="post_process_vs.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="post_process_ps_blur.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="forward_vertex_to_pixel.hlsli">
@@ -221,6 +227,9 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="pbr.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="post_process_vertex_to_pixel.hlsli">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

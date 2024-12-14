@@ -145,6 +145,7 @@ void ggp::Game::Initialize()
 
 	CreateShadowMaps();
 	CreateSamplers();
+	CreateRenderTarget();
 	CreateMaterials();
 	LoadMeshes();
 	LoadCubemapAndCreateSkybox();
@@ -368,6 +369,54 @@ void ggp::Game::CreateSamplers()
 	};
 	const auto shadowMapSamplerRes = Graphics::Device->CreateSamplerState(&shadowMapSamplerDescription, m_shadowMapSamplerState.GetAddressOf());
 	gassert(shadowMapSamplerRes == S_OK);
+
+	// Sampler state for post processing
+	{
+		constexpr D3D11_SAMPLER_DESC ppSampDesc = {
+			.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+			.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP,
+			.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP,
+			.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP,
+			.MaxLOD = D3D11_FLOAT32_MAX,
+		};
+		const auto res = Graphics::Device->CreateSamplerState(&ppSampDesc, m_postProcessSamplerState.GetAddressOf());
+		gassert(res == S_OK);
+	}
+}
+
+void ggp::Game::CreateRenderTarget()
+{
+	const D3D11_TEXTURE2D_DESC textureDesc = {
+		.Width = Window::Width(),
+		.Height = Window::Height(),
+		.MipLevels = 1,
+		.ArraySize = 1,
+		.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+		.SampleDesc = DXGI_SAMPLE_DESC{
+			.Count = 1,
+			.Quality = 0,
+		},
+		.Usage = D3D11_USAGE_DEFAULT,
+		.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
+		.CPUAccessFlags = 0,
+		.MiscFlags = 0,
+	};
+	com_p<ID3D11Texture2D> ppTexture;
+	Graphics::Device->CreateTexture2D(&textureDesc, nullptr, ppTexture.GetAddressOf());
+
+	const D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {
+		.Format = textureDesc.Format,
+		.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D,
+		.Texture2D = {.MipSlice = 0 },
+	};
+
+	m_postProcessRenderTargetView.Reset();
+	m_postProcessShaderResourceView.Reset();
+
+	Graphics::Device->CreateRenderTargetView(
+		ppTexture.Get(), &rtvDesc, m_postProcessRenderTargetView.ReleaseAndGetAddressOf());
+	Graphics::Device->CreateShaderResourceView(
+		ppTexture.Get(), nullptr, m_postProcessShaderResourceView.ReleaseAndGetAddressOf());
 }
 
 void ggp::Game::LoadShaders()
@@ -380,6 +429,10 @@ void ggp::Game::LoadShaders()
 		Graphics::Device, Graphics::Context, FixPath(L"shadowmap_vs.cso").c_str());
 	defaultPixelShader = m_pixelShader.get();
 	defaultVertexShader = m_vertexShader.get();
+	m_postProcessPixelShader = std::make_unique<SimplePixelShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"post_process_ps_blur.cso").c_str());
+	m_postProcessVertexShader = std::make_unique<SimpleVertexShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"post_process_vs.cso").c_str());
 }
 
 void ggp::Game::CreateMaterials()
@@ -549,6 +602,9 @@ void ggp::Game::OnResize()
 {
 	if (!m_cameras.empty() && m_activeCamera < m_cameras.size())
 		m_cameras[m_activeCamera]->UpdateProjectionMatrix(Window::AspectRatio(), Window::Width(), Window::Height());
+
+	if (Graphics::Device)
+		CreateRenderTarget();
 }
 
 void ggp::Game::Update(float deltaTime, float totalTime)
@@ -581,6 +637,8 @@ void ggp::Game::BuildUI() noexcept
 	ImGui::Text("Framerate: %f", ImGui::GetIO().Framerate);
 	ImGui::Text("Window pixel dimensions: %d / %d", Window::Width(), Window::Height());
 	ImGui::ColorEdit4("Background Color", m_backgroundColor.data(), 0);
+
+	ImGui::SliderInt("Blur radius", &m_blurRadius, 0, 100);
 
 	for (size_t i = 0; i < m_cameras.size(); ++i)
 	{
@@ -713,6 +771,8 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	// Clear the back buffer (erase what's on screen) and depth buffer
 	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	Graphics::Context->ClearRenderTargetView(m_postProcessRenderTargetView.Get(), m_backgroundColor.data());
+	Graphics::Context->OMSetRenderTargets(1, m_postProcessRenderTargetView.GetAddressOf(), Graphics::DepthBufferDSV.Get());
 
 	gassert(m_activeCamera < m_cameras.size());
 	Camera& camera = *m_cameras[m_activeCamera];
@@ -762,6 +822,23 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	}
 
 	m_skybox->Draw(m_skyboxResources, *camera.GetViewMatrix(), *camera.GetProjectionMatrix());
+
+	// apply post process
+	// restore back buffer so we draw to screen
+	Graphics::Context->OMSetRenderTargets(1, Graphics::BackBufferRTV.GetAddressOf(), nullptr);
+
+	auto& ps = *m_postProcessPixelShader;
+	ps.SetShader();
+	m_postProcessVertexShader->SetShader();
+
+	ps.SetInt("blurRadius", m_blurRadius);
+	ps.SetFloat("pixelWidth", 1.0f / f32(Window::Width()));
+	ps.SetFloat("pixelHeight", 1.0f / f32(Window::Height()));
+	ps.SetShaderResourceView("gameRenderTarget", m_postProcessShaderResourceView.Get());
+	ps.SetSamplerState("postProcessSampler", m_postProcessSamplerState.Get());
+	ps.CopyAllBufferData();
+	m_postProcessVertexShader->CopyAllBufferData();
+	Graphics::Context->Draw(3, 0); // Draw exactly 3 vertices (one triangle)
 
 	// begun in Update()
 	UIEndFrame();

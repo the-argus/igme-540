@@ -39,6 +39,7 @@ namespace ggp
 		void LoadTextures();
 		void CreateShadowMaps();
 		void CreateSamplers();
+		void CreateRenderTarget();
 		void CreateMaterials();
 		void LoadMeshes();
 		void LoadCubemapAndCreateSkybox();
@@ -51,12 +52,12 @@ namespace ggp
 		bool m_spinningEnabled = true;
 		std::array<float, 4> m_backgroundColor = { 0 };
 
-		ggp::dict<std::unique_ptr<ggp::Mesh>> m_meshes;
-		ggp::dict<std::unique_ptr<Material>> m_materials;
-		ggp::dict<ggp::com_p<ID3D11ShaderResourceView>> m_textureViews;
-		ggp::com_p<ID3D11SamplerState> m_defaultSampler;
+		dict<std::unique_ptr<Mesh>> m_meshes;
+		dict<std::unique_ptr<Material>> m_materials;
+		dict<com_p<ID3D11ShaderResourceView>> m_textureViews;
+		com_p<ID3D11SamplerState> m_defaultSampler;
 		std::vector<Entity> m_entities;
-		ggp::TransformHierarchy* m_transformHierarchy;
+		TransformHierarchy* m_transformHierarchy;
 
 		size_t m_activeCamera;
 		std::vector<std::shared_ptr<Camera>> m_cameras;
@@ -64,13 +65,22 @@ namespace ggp
 		std::unique_ptr<SimpleVertexShader> m_vertexShader;
 		std::unique_ptr<SimplePixelShader> m_pixelShader;
 
+		// shared by all post processes
+		std::unique_ptr<SimpleVertexShader> m_postProcessVertexShader;
+		com_p<ID3D11SamplerState> m_postProcessSamplerState;
+		// per-postprocess pass resources (only one pass, atm)
+		std::unique_ptr<SimplePixelShader> m_postProcessPixelShader;
+		com_p<ID3D11RenderTargetView> m_postProcessRenderTargetView;
+		com_p<ID3D11ShaderResourceView> m_postProcessShaderResourceView;
+		i32 m_blurRadius = 0;
+
 		std::unique_ptr<std::array<Light, MAX_LIGHTS>> m_lights;
 		static constexpr int shadowMapResolution = 2048;
 		std::unique_ptr<std::array<std::optional<ShadowMapResources>, MAX_LIGHTS>> m_shadowMapResources;
-		std::vector<ggp::com_p<ID3D11ShaderResourceView>> m_shadowMaps;
-		std::vector<ggp::com_p<ID3D11DepthStencilView>> m_shadowMapDepths;
-		ggp::com_p<ID3D11RasterizerState> m_shadowMapRasterizerState;
-		ggp::com_p<ID3D11SamplerState> m_shadowMapSamplerState;
+		std::vector<com_p<ID3D11ShaderResourceView>> m_shadowMaps;
+		std::vector<com_p<ID3D11DepthStencilView>> m_shadowMapDepths;
+		com_p<ID3D11RasterizerState> m_shadowMapRasterizerState;
+		com_p<ID3D11SamplerState> m_shadowMapSamplerState;
 		std::unique_ptr<SimpleVertexShader> m_shadowMapVertexShader;
 
 		Sky::SharedResources m_skyboxResources;
