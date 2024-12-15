@@ -1,9 +1,11 @@
 #include "MapParser.h"
 #include "ggp_dict.h"
 #include "ggp_math.h"
+#include "Texture.h"
+#include "PathHelpers.h"
 #include <array>
 #include <optional>
-#include <variant>
+#include <filesystem>
 #include <string>
 #include <ranges>
 #include <algorithm>
@@ -110,7 +112,7 @@ namespace ggp::MapParser
 	struct FaceGeometry
 	{
 		std::vector<FaceVertex> vertices;
-		std::vector<u64> indices;
+		std::vector<u32> indices;
 	};
 
 	struct BrushGeometry
@@ -594,7 +596,204 @@ namespace ggp::MapParser
 		// join threads here...
 	}
 
-	std::vector<Mesh> parse(std::ifstream& file)
+	using VerticesAndIndices = std::tuple <std::vector<Vertex>, std::vector<u32>>;
+
+	std::vector<std::optional<VerticesAndIndices>> getMeshesByTexture(
+		const MapData& map,
+		const MapSettings& mapSettings,
+		std::string_view textureName)
+	{
+		u64 indexOffset = 0;
+		std::vector<FaceGeometry> surfaces;
+		for (u64 e = 0; e < map.entities.size(); ++e)
+		{
+			const MapEntity& entity = map.entities.at(e);
+			const MapEntityGeometry& entityGeo = map.entityGeometry.at(e);
+			const XMVECTOR entityCenter = XMLoadFloat3(&entity.center);
+
+			// split type == ENTITY
+			surfaces.push_back(FaceGeometry{});
+			FaceGeometry& surface = surfaces.back();
+			indexOffset = surface.vertices.size();
+
+			for (u64 b = 0; b < entity.brushes.size(); ++b)
+			{
+				const Brush& brush = entity.brushes.at(b);
+				const BrushGeometry& brushGeo = entityGeo.brushes.at(b);
+
+				for (u64 f = 0; f < brush.faces.size(); ++f)
+				{
+					const Face& face = brush.faces.at(f);
+					const FaceGeometry& faceGeo = brushGeo.faces.at(f);
+
+					// TODO: filter clip and skip here
+
+					for (const auto& v : faceGeo.vertices)
+					{
+						surface.vertices.push_back(v);
+						auto* rw = &surface.vertices.back().vertex;
+						XMStoreFloat3(rw, XMLoadFloat3(rw) - entityCenter);
+					}
+
+					u64 numTris = faceGeo.vertices.size() - 2;
+
+					for (u64 i = 0; i < numTris * 3; ++i)
+					{
+						surface.indices.push_back(faceGeo.indices.at(i) + indexOffset);
+					}
+
+					indexOffset += faceGeo.vertices.size();
+				}
+			}
+		}
+
+		// surfaces built, now filter
+		std::vector<std::optional<VerticesAndIndices>> out;
+		out.resize(map.entities.size());
+
+		for (u64 i = 0; i < surfaces.size(); ++i)
+		{
+			FaceGeometry& fg = surfaces.at(i);
+			if (fg.vertices.empty())
+				continue;
+
+			std::vector<Vertex> vertices;
+
+			for (auto& v : fg.vertices)
+			{
+				vertices.emplace_back();
+				XMStoreFloat3(&vertices.back().Position, XMVectorSwizzle<1, 2, 0, 0>(XMLoadFloat3(&v.vertex)) * mapSettings.scaleFactor);
+				XMStoreFloat3(&vertices.back().Normal, XMVectorSwizzle<1, 2, 0, 0>(XMLoadFloat3(&v.normal)));
+				XMStoreFloat3(&vertices.back().Tangent, XMVectorSwizzle<1, 2, 0, 0>(XMLoadFloat4(&v.tangent)));
+				vertices.back().UV = v.uv;
+			}
+			out[i] = { std::move(vertices), std::move(fg.indices) };
+		}
+
+		return out;
+	}
+
+	void loadTexturesAndCreateMaterials(
+		const MapSettings& mapSettings,
+		std::vector<TextureData>& textureData,
+		MapResult& out)
+	{
+		for (auto& t : textureData)
+		{
+			com_p<ID3D11ShaderResourceView> albedoView;
+			com_p<ID3D11ShaderResourceView> metalnessView;
+			com_p<ID3D11ShaderResourceView> roughnessView;
+			com_p<ID3D11ShaderResourceView> normalsView;
+			std::string metalnessName = t.name + "_metal";
+			std::string roughnessName = t.name + "_roughness";
+			std::string normalsName = t.name + "_normals";
+			auto dir = std::wstring(std::begin(mapSettings.baseTexturesDir), std::end(mapSettings.baseTexturesDir));
+
+			if (!std::filesystem::exists(FixPath(dir + NarrowToWide(t.name))))
+			{
+				albedoView = mapSettings.defaultTexture;
+			}
+			else
+			{
+				// TODO: check if other files exist before loading + inserting
+				Texture::LoadPNG(
+					albedoView.GetAddressOf(),
+					(t.name).c_str(),
+					dir);
+				Texture::LoadPNG(
+					metalnessView.GetAddressOf(),
+					metalnessName.c_str(),
+					dir);
+				Texture::LoadPNG(
+					roughnessView.GetAddressOf(),
+					roughnessName.c_str(),
+					dir);
+				Texture::LoadPNG(
+					normalsView.GetAddressOf(),
+					normalsName.c_str(),
+					dir);
+			}
+
+			ID3D11Resource* resPtr;
+			albedoView->GetResource(&resPtr);
+			D3D11_TEXTURE2D_DESC descriptor;
+			static_cast<ID3D11Texture2D*>(resPtr)->GetDesc(&descriptor);
+
+			t.width = descriptor.Width;
+			t.height = descriptor.Height;
+
+			if (!t.width)
+				t.width = 512;
+			if (!t.height)
+				t.height = 512;
+
+			out.materials[t.name] = std::make_unique<Material>(Material::Options{
+				.samplerState = mapSettings.pbrTextureSampler,
+				.albedoTextureView = albedoView.Get(),
+				.normalTextureView = normalsView.Get(),
+				.roughnessTextureView = roughnessView.Get(),
+				.metalnessTextureView = metalnessView.Get(),
+			}, mapSettings.pbrVertexShader, mapSettings.pbrPixelShader);
+
+			out.textureViews[t.name] = std::move(albedoView);
+			if (metalnessView)
+				out.textureViews[metalnessName] = std::move(metalnessView);
+			if (roughnessView)
+				out.textureViews[roughnessName] = std::move(roughnessView);
+			if (normalsView)
+				out.textureViews[normalsName] = std::move(normalsView);
+		}
+	}
+
+	void createMeshesAndEntities(const MapData& map, const MapSettings& mapSettings, MapResult& out)
+	{
+		const auto classnameForEntity = [&](u64 e) -> std::string
+		{
+			const MapEntity& entity = map.entities.at(e);
+			auto& props = entity.properties;
+			std::string classname = props.contains("classname") ? props.at("classname") : "misc_unknown";
+			std::string name = "entity_" + std::to_string(e) + "_" + classname;
+		};
+
+		out.elements.reserve(map.entities.size()); // will need more than this, but at least this
+		
+		// entities which have no mesh and no material- they just represent map entities. their children are meshes
+		for (u64 e = 0; e < map.entities.size(); ++e)
+		{
+			const MapEntity& entity = map.entities.at(e);
+			Transform t = out.mapRoot.GetTransform().AddChild();
+			t.SetPosition(entity.center);
+			out.elements.emplace_back(nullptr, nullptr, t, classnameForEntity(e));
+		}
+
+		for (const TextureData& tex : map.textures)
+		{
+			auto meshData = getMeshesByTexture(map, mapSettings, tex.name);
+			for (u64 e = 0; e < meshData.size(); ++e)
+			{
+				if (!meshData.at(e))
+					continue;
+				auto [vertices, indices] = meshData.at(e).value();
+				Entity& parent = out.elements.at(e);
+				std::string childName = parent.GetDebugName() + std::string("_") + tex.name;
+				if (out.meshes.contains(childName)) {
+					printf("namespacing for entities collision on name %s\n, aborting", childName.c_str());
+					std::abort();
+				}
+				auto uniqueMesh = std::make_unique<Mesh>(std::move(Mesh::UploadToGPU(vertices, indices)));
+				Mesh* meshRawPtr = uniqueMesh.get();
+				out.meshes[childName] = std::move(uniqueMesh);
+
+				out.elements.emplace_back(
+					meshRawPtr,
+					out.materials.at(tex.name).get(),
+					parent.GetTransform().AddChild(),
+					std::move(childName));
+			}
+		}
+	}
+
+	MapResult parse(std::ifstream& file, const MapSettings& settings)
 	{
 		auto scope = Scope::File;
 		bool isComment = false;
@@ -889,8 +1088,14 @@ namespace ggp::MapParser
 				token(std::string(std::begin(t), std::end(t)));
 		}
 
+		MapResult out = {.mapRoot = Entity(nullptr, nullptr, ".map file generated root") };
+
+		loadTexturesAndCreateMaterials(settings, mapData.textures, out);
+
 		generateAllGeometry(mapData);
 
-		return {};
+		createMeshesAndEntities(mapData, settings, out);
+
+		return out;
 	}
 }

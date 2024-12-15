@@ -4,6 +4,7 @@
 #include "Input.h"
 #include "PathHelpers.h"
 #include "Window.h"
+#include "Texture.h"
 #include "memutils.h"
 #include "errors.h"
 
@@ -12,7 +13,6 @@
 #include "imgui_impl_win32.h"
 
 #include <DirectXMath.h>
-#include <WICTextureLoader.h>
 
 #include <algorithm>
 
@@ -121,19 +121,6 @@ static void SpinRecursive(float delta, float totalTime, ggp::Transform t, int nu
 		t.RotateLocal({ 0.f, rotation * 5, 0.f });
 }
 
-static void LoadTexture(ID3D11ShaderResourceView** out_srv, const char* texturename, std::wstring assetsSubDir = L"example_textures/ ")
-{
-	using namespace ggp;
-	const auto wideName = std::wstring(texturename, texturename + std::strlen(texturename));
-	const auto path = std::wstring(L"../../assets/") + assetsSubDir + wideName + std::wstring(L".png");
-	const auto result = CreateWICTextureFromFile(
-		Graphics::Device.Get(),
-		Graphics::Context.Get(),
-		FixPath(path).c_str(),
-		nullptr, out_srv);
-	gassert(result == S_OK);
-}
-
 void ggp::Game::Initialize()
 {
 	LoadShaders();
@@ -213,11 +200,11 @@ ggp::Game::~Game()
 void ggp::Game::LoadTextures()
 {
 	// globally accessible fallback textures
-	constexpr auto defaultTextureDir = L"example_textures/fallback/";
-	LoadTexture(defaultAlbedoTextureView.GetAddressOf(), "missing_albedo", defaultTextureDir);
-	LoadTexture(defaultNormalTextureView.GetAddressOf(), "flat_normals", defaultTextureDir);
-	LoadTexture(defaultMetalnessTextureViewMetal.GetAddressOf(), "metal", defaultTextureDir);
-	LoadTexture(defaultMetalnessTextureViewNonMetal.GetAddressOf(), "non_metal", defaultTextureDir);
+	constexpr auto defaultTextureDir = L"assets/example_textures/fallback/";
+	Texture::LoadPNG(defaultAlbedoTextureView.GetAddressOf(), "missing_albedo", defaultTextureDir);
+	Texture::LoadPNG(defaultNormalTextureView.GetAddressOf(), "flat_normals", defaultTextureDir);
+	Texture::LoadPNG(defaultMetalnessTextureViewMetal.GetAddressOf(), "metal", defaultTextureDir);
+	Texture::LoadPNG(defaultMetalnessTextureViewNonMetal.GetAddressOf(), "non_metal", defaultTextureDir);
 
 	constexpr std::array textures{
 		"bronze_albedo",
@@ -252,7 +239,7 @@ void ggp::Game::LoadTextures()
 
 	for (const auto& name : textures) {
 		com_p<ID3D11ShaderResourceView> srv;
-		LoadTexture(srv.GetAddressOf(), name, L"materials/");
+		Texture::LoadPNG(srv.GetAddressOf(), name, L"assets/materials/");
 		m_textureViews.insert({ name, srv });
 	}
 }
