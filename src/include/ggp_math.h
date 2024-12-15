@@ -4,6 +4,12 @@
 
 namespace ggp
 {
+	// if f is 0, return 0. if f is negative, return -1, otherwise return +1
+	inline f32 Sign(f32 f)
+	{
+		return (f == 0.0f ? 0.0f : (f > 0.0f ? 1.f : -1.f));
+	}
+
 	inline DirectX::XMVECTOR VectorSplat(f32 f)
 	{
 		return DirectX::XMVectorSet(f, f, f, f);
