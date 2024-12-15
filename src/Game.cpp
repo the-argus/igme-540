@@ -3,6 +3,7 @@
 #include "Vertex.h"
 #include "Input.h"
 #include "PathHelpers.h"
+#include "MapParser.h"
 #include "Window.h"
 #include "Texture.h"
 #include "memutils.h"
@@ -200,38 +201,38 @@ ggp::Game::~Game()
 void ggp::Game::LoadTextures()
 {
 	// globally accessible fallback textures
-	constexpr auto defaultTextureDir = L"assets/example_textures/fallback/";
+	constexpr auto defaultTextureDir = L"../../assets/example_textures/fallback/";
 	Texture::LoadPNG(defaultAlbedoTextureView.GetAddressOf(), "missing_albedo", defaultTextureDir);
 	Texture::LoadPNG(defaultNormalTextureView.GetAddressOf(), "flat_normals", defaultTextureDir);
 	Texture::LoadPNG(defaultMetalnessTextureViewMetal.GetAddressOf(), "metal", defaultTextureDir);
 	Texture::LoadPNG(defaultMetalnessTextureViewNonMetal.GetAddressOf(), "non_metal", defaultTextureDir);
 
 	constexpr std::array textures{
-		"bronze_albedo",
+		"bronze",
 		"bronze_metal",
 		"bronze_normals",
 		"bronze_roughness",
-		"cobblestone_albedo",
+		"cobblestone",
 		"cobblestone_metal",
 		"cobblestone_normals",
 		"cobblestone_roughness",
-		"floor_albedo",
+		"floor",
 		"floor_metal",
 		"floor_normals",
 		"floor_roughness",
-		"paint_albedo",
+		"paint",
 		"paint_metal",
 		"paint_normals",
 		"paint_roughness",
-		"rough_albedo",
+		"rough",
 		"rough_metal",
 		"rough_normals",
 		"rough_roughness",
-		"scratched_albedo",
+		"scratched",
 		"scratched_metal",
 		"scratched_normals",
 		"scratched_roughness",
-		"wood_albedo",
+		"wood",
 		"wood_metal",
 		"wood_normals",
 		"wood_roughness",
@@ -239,7 +240,7 @@ void ggp::Game::LoadTextures()
 
 	for (const auto& name : textures) {
 		com_p<ID3D11ShaderResourceView> srv;
-		Texture::LoadPNG(srv.GetAddressOf(), name, L"assets/materials/");
+		Texture::LoadPNG(srv.GetAddressOf(), name, L"../../assets/materials/");
 		m_textureViews.insert({ name, srv });
 	}
 }
@@ -430,46 +431,46 @@ void ggp::Game::CreateMaterials()
 	m_materials["flat_red_wood"] = std::make_unique<Material>(Material::Options{
 		.colorRGBA = {1.f, 0.5f, 0.5f, 1.f },
 		.roughness = 0.f,
-		.albedoTextureView = m_textureViews.at("wood_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("wood").Get(),
 		});
 	m_materials["bronze"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("bronze_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("bronze").Get(),
 		.normalTextureView = m_textureViews.at("bronze_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("bronze_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("bronze_metal").Get(),
 		});
 	m_materials["cobblestone"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("cobblestone_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("cobblestone").Get(),
 		.normalTextureView = m_textureViews.at("cobblestone_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("cobblestone_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("cobblestone_metal").Get(),
 		});
 	m_materials["floor"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("floor_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("floor").Get(),
 		.normalTextureView = m_textureViews.at("floor_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("floor_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("floor_metal").Get(),
 		});
 	m_materials["paint"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("paint_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("paint").Get(),
 		.normalTextureView = m_textureViews.at("paint_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("paint_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("paint_metal").Get(),
 		});
 	m_materials["rough"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("rough_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("rough").Get(),
 		.normalTextureView = m_textureViews.at("rough_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("rough_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("rough_metal").Get(),
 		});
 	m_materials["scratched"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("scratched_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("scratched").Get(),
 		.normalTextureView = m_textureViews.at("scratched_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("scratched_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("scratched_metal").Get(),
 		});
 	m_materials["wood"] = std::make_unique<Material>(Material::Options{
-		.albedoTextureView = m_textureViews.at("wood_albedo").Get(),
+		.albedoTextureView = m_textureViews.at("wood").Get(),
 		.normalTextureView = m_textureViews.at("wood_normals").Get(),
 		.roughnessTextureView = m_textureViews.at("wood_roughness").Get(),
 		.metalnessTextureView = m_textureViews.at("wood_metal").Get(),
@@ -561,6 +562,25 @@ void ggp::Game::CreateEntities()
 	// floor has hardcoded position
 	floor.GetTransform().SetPosition({ 0, -5, 0 });
 	floor.GetTransform().SetScale({ 30, 1, 30 });
+
+	std::ifstream mapfile;
+	mapfile.open(FixPath(L"../../levels/debug.map"));
+
+	MapParser::MapSettings settings{
+		.defaultTexture = defaultAlbedoTextureView,
+		.pbrPixelShader = m_pixelShader.get(),
+		.pbrVertexShader = m_vertexShader.get(),
+		.pbrTextureSampler = m_defaultSampler.Get(),
+	};
+
+	MapParser::MapResult result = MapParser::parse(mapfile, settings);
+	mapfile.close();
+
+	m_materials.merge(std::move(result.materials));
+	m_textureViews.merge(std::move(result.textureViews));
+	m_meshes.merge(std::move(result.meshes));
+	std::copy(std::begin(result.elements), std::end(result.elements), std::back_inserter(m_entities));
+	m_entities.push_back(result.mapRoot);
 }
 
 void ggp::Game::UIBeginFrame(float deltaTime) noexcept
@@ -681,17 +701,20 @@ void ggp::Game::BuildUI() noexcept
 					entity.GetTransform().SetScale(pos);
 				}
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", entity.GetMesh()->GetVertexCount());
-				gassert(bytes_printed < buf.size());
-				ImGui::BulletText(buf.data());
+				if (entity.GetMesh())
+				{
+					bytes_printed = std::snprintf(buf.data(), buf.size(), "Vertices: %zu", entity.GetMesh()->GetVertexCount());
+					gassert(bytes_printed < buf.size());
+					ImGui::BulletText(buf.data());
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", entity.GetMesh()->GetIndexCount());
-				gassert(bytes_printed < buf.size());
-				ImGui::BulletText(buf.data());
+					bytes_printed = std::snprintf(buf.data(), buf.size(), "Indices: %zu", entity.GetMesh()->GetIndexCount());
+					gassert(bytes_printed < buf.size());
+					ImGui::BulletText(buf.data());
 
-				bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", entity.GetMesh()->GetIndexCount() / 3);
-				gassert(bytes_printed < buf.size());
-				ImGui::BulletText(buf.data());
+					bytes_printed = std::snprintf(buf.data(), buf.size(), "Triangles: %zu", entity.GetMesh()->GetIndexCount() / 3);
+					gassert(bytes_printed < buf.size());
+					ImGui::BulletText(buf.data());
+				}
 
 				ImGui::PopID();
 
@@ -737,7 +760,8 @@ void ggp::Game::RenderShadowMaps() noexcept
 		{
 			m_shadowMapVertexShader->SetMatrix4x4("world", *e.GetTransform().GetWorldMatrixPtr());
 			m_shadowMapVertexShader->CopyAllBufferData();
-			e.GetMesh()->BindBuffersAndDraw();
+			if (e.GetMesh())
+				e.GetMesh()->BindBuffersAndDraw();
 		}
 	}
 
@@ -765,6 +789,9 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	Camera& camera = *m_cameras[m_activeCamera];
 	for (Entity& entity : m_entities)
 	{
+		if (!entity.GetMaterial() || !entity.GetMesh())
+			continue;
+
 		// activate entity's shaders
 		entity.GetMaterial()->GetPixelShader()->SetShader();
 		entity.GetMaterial()->GetVertexShader()->SetShader();

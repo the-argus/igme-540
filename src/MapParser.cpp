@@ -146,7 +146,7 @@ namespace ggp::MapParser
 					return i;
 			}
 			// NOTE: texture only partially initialized here, need to set width / height
-			textures.emplace_back(name);
+			textures.emplace_back(std::string(std::begin(name), std::end(name)), 0, 0);
 			return textures.size() - 1;
 		}
 	};
@@ -164,12 +164,12 @@ namespace ggp::MapParser
 
 		const XMVECTOR n1CrossN2 = XMVector3Cross(n1, n2);
 		const XMVECTOR n2CrossN0 = XMVector3Cross(n2, n0);
-		const XMVECTOR intersect = (XMVectorScale(n1CrossN2, f0.planeDistance)
-			+ XMVectorScale(n2CrossN0, f1.planeDistance)
-			+ XMVectorScale(n0CrossN1, f2.planeDistance)) / denom;
+		const XMVECTOR intersect = ((n1CrossN2 * f0.planeDistance)
+			+ (n2CrossN0 * f1.planeDistance)
+			+ (n0CrossN1 * f2.planeDistance)) * (1.f / denomFloat);
 
-		std::optional<XMFLOAT3> out = XMFLOAT3{0, 0, 0};
-		XMStoreFloat3(&out.value(), intersect);
+		XMFLOAT3 out;
+		XMStoreFloat3(&out, intersect);
 		return out;
 	}
 
@@ -350,7 +350,7 @@ namespace ggp::MapParser
 					// average surrounding normals in phong case
 					if (isPhong)
 					{
-						const f32 threshold = std::cos((phongAngle + 0.01) * 0.0174533);
+						const f32 threshold = std::cosf((phongAngle + 0.01f) * 0.0174533f);
 						const XMVECTOR f0Normal = XMLoadFloat3(&face.planeNormal);
 						const XMVECTOR f1Normal = XMLoadFloat3(&brush.faces.at(f1).planeNormal);
 						const XMVECTOR f2Normal = XMLoadFloat3(&brush.faces.at(f2).planeNormal);
@@ -382,7 +382,7 @@ namespace ggp::MapParser
 						return !XMComparisonAllTrue(XMVector3EqualR(XMLoadFloat3(&fv.vertex), vertex));
 					});
 
-					if (duplicate != std::end(faceGeo.vertices))
+					if (duplicate == std::end(faceGeo.vertices))
 					{
 						faceGeo.vertices.push_back({});
 						FaceVertex& out = faceGeo.vertices.back();
@@ -450,7 +450,7 @@ namespace ggp::MapParser
 			}
 
 			// perform average to get actual center
-			if (vertexCount / 0)
+			if (vertexCount != 0)
 				brushCenter = XMVectorScale(brushCenter, 1.0f / f32(vertexCount));
 		}
 
@@ -556,7 +556,7 @@ namespace ggp::MapParser
 					for (const FaceVertex& v : faceGeo.vertices)
 						windFaceCenter += XMLoadFloat3(&v.vertex);
 
-					windFaceCenter /= faceGeo.vertices.size();
+					windFaceCenter /= f32(faceGeo.vertices.size());
 
 					const auto byWindingSort = [&](const FaceVertex& a, const FaceVertex& b) -> bool
 					{
@@ -582,7 +582,7 @@ namespace ggp::MapParser
 					// index vertices
 					u64 iCount = 0;
 					faceGeo.indices.resize((faceGeo.vertices.size() - 2) * 3);
-					for (u64 i = 0; i < faceGeo.vertices.size() - 2; ++i)
+					for (u32 i = 0; i < faceGeo.vertices.size() - 2; ++i)
 					{
 						faceGeo.indices[iCount] = 0;
 						faceGeo.indices[iCount + 1] = i + 1;
@@ -603,7 +603,7 @@ namespace ggp::MapParser
 		const MapSettings& mapSettings,
 		std::string_view textureName)
 	{
-		u64 indexOffset = 0;
+		u32 indexOffset = 0;
 		std::vector<FaceGeometry> surfaces;
 		for (u64 e = 0; e < map.entities.size(); ++e)
 		{
@@ -614,7 +614,7 @@ namespace ggp::MapParser
 			// split type == ENTITY
 			surfaces.push_back(FaceGeometry{});
 			FaceGeometry& surface = surfaces.back();
-			indexOffset = surface.vertices.size();
+			indexOffset = u32(surface.vertices.size());
 
 			for (u64 b = 0; b < entity.brushes.size(); ++b)
 			{
@@ -635,14 +635,14 @@ namespace ggp::MapParser
 						XMStoreFloat3(rw, XMLoadFloat3(rw) - entityCenter);
 					}
 
-					u64 numTris = faceGeo.vertices.size() - 2;
+					const u64 numTris = max(i64(faceGeo.vertices.size()) - 2, 0);
 
-					for (u64 i = 0; i < numTris * 3; ++i)
+					for (u32 i = 0; i < numTris * 3; ++i)
 					{
 						surface.indices.push_back(faceGeo.indices.at(i) + indexOffset);
 					}
 
-					indexOffset += faceGeo.vertices.size();
+					indexOffset += u32(faceGeo.vertices.size());
 				}
 			}
 		}
@@ -752,7 +752,7 @@ namespace ggp::MapParser
 			const MapEntity& entity = map.entities.at(e);
 			auto& props = entity.properties;
 			std::string classname = props.contains("classname") ? props.at("classname") : "misc_unknown";
-			std::string name = "entity_" + std::to_string(e) + "_" + classname;
+			return "entity_" + std::to_string(e) + "_" + classname;
 		};
 
 		out.elements.reserve(map.entities.size()); // will need more than this, but at least this
@@ -927,7 +927,7 @@ namespace ggp::MapParser
 			{
 				if (token == "{")
 				{
-					*entityIndex += 1;
+					entityIndex = !entityIndex.has_value() ? 0 : *entityIndex + 1;
 					brushIndex = {};
 					setScope(Scope::Entity);
 				}
@@ -946,7 +946,7 @@ namespace ggp::MapParser
 				}
 				else if (token == "{")
 				{
-					*brushIndex += 1;
+					brushIndex = brushIndex ? *brushIndex + 1 : 0;
 					faceIndex = {};
 					setScope(Scope::Brush);
 				}
@@ -969,7 +969,8 @@ namespace ggp::MapParser
 
 				if (isLast)
 				{
-					currentEntity.properties.at(propertyKey) = currentProperty.substr(1, currentProperty.length() - 2);
+					gassert(!currentEntity.properties.contains(propertyKey), "duplicate key in entity");
+					currentEntity.properties[propertyKey] = currentProperty.substr(1, currentProperty.length() - 2);
 					setScope(Scope::Entity);
 				}
 				break;
@@ -978,7 +979,7 @@ namespace ggp::MapParser
 			{
 				if (token == "(")
 				{
-					*faceIndex += 1;
+					faceIndex = faceIndex ? *faceIndex + 1 : 0;
 					componentIndex = 0;
 					setScope(Scope::Plane0);
 				}
@@ -1082,6 +1083,8 @@ namespace ggp::MapParser
 			auto tokens = line
 				| std::views::transform(unifyWhitespace)
 				| std::views::split(' ');
+
+			isComment = false;
 
 			for (const auto& t : tokens)
 				// TODO: make string view instead of string here?

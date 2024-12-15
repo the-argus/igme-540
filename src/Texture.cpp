@@ -11,7 +11,7 @@ void ggp::Texture::LoadPNG(ID3D11ShaderResourceView** out_srv, const char* textu
 {
 	using namespace ggp;
 	const auto wideName = std::wstring(texturename, texturename + std::strlen(texturename));
-	const auto path = std::wstring(L"../../") + subDir + wideName + std::wstring(L".png");
+	const auto path = subDir + wideName + std::wstring(L".png");
 	const auto result = CreateWICTextureFromFile(
 		Graphics::Device.Get(),
 		Graphics::Context.Get(),
