@@ -38,7 +38,7 @@ namespace ggp
 static const std::array lights = {
 	ggp::Light{
 		.type = LIGHT_TYPE_DIRECTIONAL,
-		.direction = { 0.f, -1.f, -1.f },
+		.direction = { 0.4f, -1.f, -1.f },
 		.intensity = 1.f,
 		.color = { 1.f, 1.f, 1.f },
 		.isShadowCaster = true,
@@ -522,7 +522,6 @@ void ggp::Game::LoadCubemapAndCreateSkybox()
 
 void ggp::Game::CreateEntities()
 {
-	/*
 	Mesh* cube = m_meshes.at("cube.obj").get();
 	Mesh* cylinder = m_meshes.at("cylinder.obj").get();
 	Mesh* helix = m_meshes.at("helix.obj").get();
@@ -563,7 +562,6 @@ void ggp::Game::CreateEntities()
 	// floor has hardcoded position
 	floor.GetTransform().SetPosition({ 0, -5, 0 });
 	floor.GetTransform().SetScale({ 30, 1, 30 });
-	*/
 
 	std::ifstream mapfile;
 	mapfile.open(FixPath(L"../../levels/debug.map"));
@@ -622,11 +620,11 @@ void ggp::Game::Update(float deltaTime, float totalTime)
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
 
-	/*if (m_spinningEnabled)
+	if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
 		SpinRecursive(deltaTime, totalTime, root);
-	}*/
+	}
 
 	gassert(m_activeCamera < m_cameras.size());
 	m_cameras[m_activeCamera]->Update(deltaTime);
@@ -796,12 +794,6 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	{
 		if (!entity.GetMaterial() || !entity.GetMesh())
 			continue;
-
-		printf("drawing entity %s\n", entity.GetDebugName());
-		if (std::string("entity_0_worldspawn___TB_empty") == entity.GetDebugName())
-		{
-			printf("worldspawn found\n");
-		}
 
 		// activate entity's shaders
 		entity.GetMaterial()->GetPixelShader()->SetShader();
