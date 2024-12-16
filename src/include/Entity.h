@@ -24,6 +24,13 @@ namespace ggp
 
 		inline const char* GetDebugName() const noexcept { return m_debugName.c_str(); }
 
+		inline void SetCameraMask(u64 mask) noexcept { m_cameraMask = mask; }
+		inline bool ShouldDrawForCamera(u64 cameraIndex) noexcept
+		{
+			gassert(cameraIndex < 63);
+			return !((u64(1) << cameraIndex) & m_cameraMask);
+		}
+
 		inline const dict<Variant>& GetProperties() const noexcept { return m_properties; }
 		inline dict<Variant>& GetProperties() noexcept { return m_properties; }
 
@@ -32,6 +39,7 @@ namespace ggp
 		Mesh* m_mesh;
 		Material* m_material;
 		Transform m_transform;
+		u64 m_cameraMask = 0; // no cameras masked
 		// properties as read from .map file, if spawned from there
 		dict<Variant> m_properties;
 	};

@@ -168,6 +168,22 @@ void ggp::Game::Initialize()
 		}));
 	m_activeCamera = 0;
 
+	for (Portal& portal : m_portals)
+	{
+		portal.transform = Transform::Create();
+		portal.camera = std::make_unique<Camera>(Camera::Options{
+			.aspectRatio = Window::AspectRatio(),
+			.fovDegrees = 70,
+		});
+	}
+
+	// connect first two portals
+	m_portals.at(0).connectedPortalIndex = 1;
+	m_portals.at(1).connectedPortalIndex = 0;
+
+	m_portals.at(0).transform->SetPosition({ 10, 0, 0 });
+	m_portals.at(1).transform->SetPosition({ -10, 0, 0 });
+
 	Graphics::Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// Initialize ImGui itself & platform/renderer backends
@@ -372,13 +388,14 @@ void ggp::Game::CreateSamplers()
 	}
 }
 
+// called on resize after graphics initialized
 void ggp::Game::CreateRenderTarget()
 {
 	const D3D11_TEXTURE2D_DESC textureDesc = {
 		.Width = Window::Width(),
 		.Height = Window::Height(),
 		.MipLevels = 1,
-		.ArraySize = 1,
+		.ArraySize = 1 + portalCount,
 		.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
 		.SampleDesc = DXGI_SAMPLE_DESC{
 			.Count = 1,
@@ -392,19 +409,111 @@ void ggp::Game::CreateRenderTarget()
 	com_p<ID3D11Texture2D> ppTexture;
 	Graphics::Device->CreateTexture2D(&textureDesc, nullptr, ppTexture.GetAddressOf());
 
-	const D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {
+	const D3D11_RENDER_TARGET_VIEW_DESC singleRtvDesc = {
 		.Format = textureDesc.Format,
 		.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D,
-		.Texture2D = {.MipSlice = 0 },
+		.Texture2D = { .MipSlice = 0 },
+	};
+	
+	const D3D11_SHADER_RESOURCE_VIEW_DESC singleSrvDesc = {
+		.Format = textureDesc.Format,
+		.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
+		.Texture2D = { .MipLevels = 1 },
 	};
 
-	m_postProcessRenderTargetView.Reset();
-	m_postProcessShaderResourceView.Reset();
+	m_singleRenderTargetView.Reset();
+	m_singleShaderResourceView.Reset();
+	m_singleDepthStencilView.Reset();
 
 	Graphics::Device->CreateRenderTargetView(
-		ppTexture.Get(), &rtvDesc, m_postProcessRenderTargetView.ReleaseAndGetAddressOf());
+		ppTexture.Get(), &singleRtvDesc, m_singleRenderTargetView.ReleaseAndGetAddressOf());
 	Graphics::Device->CreateShaderResourceView(
-		ppTexture.Get(), nullptr, m_postProcessShaderResourceView.ReleaseAndGetAddressOf());
+		ppTexture.Get(), &singleSrvDesc, m_singleShaderResourceView.ReleaseAndGetAddressOf());
+
+	const D3D11_TEXTURE2D_DESC depthStencilDesc = {
+		.Width = Window::Width(),
+		.Height = Window::Height(),
+		.MipLevels = 1,
+		.ArraySize = 1 + portalCount,
+		.Format = DXGI_FORMAT_D24_UNORM_S8_UINT,
+		.SampleDesc = {
+			.Count = 1,
+			.Quality = 0,
+		},
+		.Usage = D3D11_USAGE_DEFAULT,
+		.BindFlags = D3D11_BIND_DEPTH_STENCIL,
+		.CPUAccessFlags = 0,
+		.MiscFlags = 0,
+	};
+
+	const D3D11_DEPTH_STENCIL_VIEW_DESC singleDepthStencilViewDesc = {
+		.Format = depthStencilDesc.Format,
+		.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
+		.Texture2D = { .MipSlice = 0 },
+	};
+
+	com_p<ID3D11Texture2D> depthBufferTexture;
+	Graphics::Device->CreateTexture2D(&depthStencilDesc, 0, &depthBufferTexture);
+
+	Graphics::Device->CreateDepthStencilView(
+		depthBufferTexture.Get(),
+		&singleDepthStencilViewDesc,
+		m_singleDepthStencilView.GetAddressOf()); 
+
+	for (u64 p = 0; p < m_portals.size(); ++p)
+	{
+		Portal& portal = m_portals.at(p);
+		const D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {
+			.Format = textureDesc.Format,
+			.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY,
+			.Texture2DArray = D3D11_TEX2D_ARRAY_SRV{
+				.MostDetailedMip = 0,
+				.MipLevels = 1,
+				.FirstArraySlice = u32(p) + 1, // skip first texture, thats for player camera
+				.ArraySize = 1,
+			},
+		};
+		const D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {
+			.Format = textureDesc.Format,
+			.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY,
+			.Texture2DArray = {
+				.MipSlice = 0,
+				.FirstArraySlice = u32(p) + 1,
+				.ArraySize = 1,
+			},
+		};
+		const D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc = {
+			.Format = depthStencilDesc.Format,
+			.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY,
+			.Texture2DArray = {
+				.MipSlice = 0,
+				.FirstArraySlice = u32(p) + 1,
+				.ArraySize = 1,
+			},
+		};
+
+		portal.rtv.Reset();
+		portal.srv.Reset();
+		portal.dsv.Reset();
+		Graphics::Device->CreateRenderTargetView(
+			ppTexture.Get(), &rtvDesc, portal.rtv.ReleaseAndGetAddressOf());
+		Graphics::Device->CreateShaderResourceView(
+			ppTexture.Get(), &srvDesc, portal.srv.ReleaseAndGetAddressOf());
+		Graphics::Device->CreateDepthStencilView(
+			depthBufferTexture.Get(), &depthStencilViewDesc, portal.dsv.ReleaseAndGetAddressOf());
+	}
+
+	// m_portalRenderTargets.at(0) = m_postProcessRenderTargetView.Get();
+	for (u64 p = 0; p < m_portalViewports.size(); ++p)
+	{
+		//if (p != 0)
+		//	m_portalRenderTargets.at(p) = m_portals.at(p - 1).renderTarget.Get();
+		m_portalViewports.at(p) = D3D11_VIEWPORT{
+			.Width = f32(Window::Width()),
+			.Height = f32(Window::Height()),
+			.MaxDepth = 1.0f,
+		};
+	}
 }
 
 void ggp::Game::LoadShaders()
@@ -421,6 +530,8 @@ void ggp::Game::LoadShaders()
 		Graphics::Device, Graphics::Context, FixPath(L"post_process_ps_blur.cso").c_str());
 	m_postProcessVertexShader = std::make_unique<SimpleVertexShader>(
 		Graphics::Device, Graphics::Context, FixPath(L"post_process_vs.cso").c_str());
+	m_portalShader = std::make_unique<SimplePixelShader>(
+		Graphics::Device, Graphics::Context, FixPath(L"forward_ps_portal.cso").c_str());
 }
 
 void ggp::Game::CreateMaterials()
@@ -626,6 +737,8 @@ void ggp::Game::Update(float deltaTime, float totalTime)
 		SpinRecursive(deltaTime, totalTime, root);
 	}
 
+	UpdatePortalLocations();
+
 	gassert(m_activeCamera < m_cameras.size());
 	m_cameras[m_activeCamera]->Update(deltaTime);
 
@@ -633,6 +746,45 @@ void ggp::Game::Update(float deltaTime, float totalTime)
 	UIBeginFrame(deltaTime);
 
 	BuildUI();
+}
+
+void ggp::Game::UpdatePortalLocations() noexcept
+{
+	// move camera so that it is the same distance from our transform that
+	// the playerView is from our connection's transform. portal should not
+	// modify player view transform
+	Transform playerTransform = m_cameras.at(m_activeCamera)->GetTransform();
+	const XMVECTOR playerPosition = playerTransform.LoadPosition();
+	const XMVECTOR playerRotation = playerTransform.LoadEulerAngles();
+
+	for (Portal& portal : m_portals)
+	{
+		if (!portal.connectedPortalIndex)
+			continue;
+		Portal& connectedPortal = m_portals.at(portal.connectedPortalIndex.value());
+		const XMVECTOR portalToPlayerDistance = playerPosition - connectedPortal.transform->LoadPosition();
+		portal.camera->GetTransform().StorePosition(portal.transform->LoadPosition() + portalToPlayerDistance);
+		portal.camera->GetTransform().StoreEulerAngles(playerRotation);
+		/*
+		Transform connectedLocation = m_portals.at(portal.connectedPortalIndex.value()).transform.value();
+		const XMMATRIX connnectedPortalWorldMatrixInverse =
+			XMMatrixInverse(nullptr, XMLoadFloat4x4(connectedLocation.GetWorldMatrixPtr()));
+		const XMMATRIX portalWorldMatrix = XMLoadFloat4x4(portal.transform->GetWorldMatrixPtr());
+
+		// this whole thing is here because i didnt implement a SetWorldMatrix in hierarchy
+		XMVECTOR outTranslation;
+		XMVECTOR outQuat;
+		XMVECTOR outScale;
+		XMMatrixDecompose(&outScale, &outQuat, &outTranslation,
+			 invPlayerMatrix * portalWorldMatrix * connnectedPortalWorldMatrixInverse);
+		portal.transform->StorePosition(outTranslation);
+		// no scale manipulation with portals?
+		// portal.transform.StoreScale(outScale);
+		XMFLOAT4 quat;
+		XMStoreFloat4(&quat, outQuat);
+		portal.camera->GetTransform().SetEulerAngles(QuatToEuler(quat));
+		*/
+	}
 }
 
 void ggp::Game::BuildUI() noexcept
@@ -659,6 +811,13 @@ void ggp::Game::BuildUI() noexcept
 		ImGui::Text("Pos: %4.2f %4.2f %4.2f", pos.x, pos.y, pos.z);
 		ImGui::Text("Locked: %s", cam.IsLocked() ? "True" : "False");
 	}
+
+	/*
+	for (Portal& portal : m_portals)
+	{
+		ImGui::Image(portal.srv.Get(), {1280, 720});
+	}
+	*/
 
 	for (size_t i = 0; i < m_lights->size(); ++i) {
 		std::array<char, 64> buf;
@@ -768,13 +927,7 @@ void ggp::Game::RenderShadowMaps() noexcept
 		}
 	}
 
-	viewport.Width = f32(Window::Width());
-	viewport.Height = f32(Window::Height());
-	Graphics::Context->RSSetViewports(1, &viewport);
-	Graphics::Context->OMSetRenderTargets(
-		1,
-		Graphics::BackBufferRTV.GetAddressOf(),
-		Graphics::DepthBufferDSV.Get());
+	Graphics::Context->RSSetViewports(1, m_portalViewports.data());
 	Graphics::Context->RSSetState(0);
 }
 
@@ -831,6 +984,65 @@ void ggp::Game::RenderSceneFull(const Camera& camera, float deltaTime, float tot
 	m_skybox->Draw(m_skyboxResources, *camera.GetViewMatrix(), *camera.GetProjectionMatrix());
 }
 
+void ggp::Game::RenderSceneAndPortals(const Camera& camera, float delta, float total) noexcept
+{
+	Graphics::Context->RSSetViewports(1, m_portalViewports.data());
+	Mesh& cube = *m_meshes.at("cube.obj");
+	for (u64 p = 0; p < m_portals.size(); ++p)
+	{
+		Portal& portal = m_portals.at(p);
+		if (!portal.connectedPortalIndex)
+			continue;
+		Portal& connectedPortal = m_portals.at(portal.connectedPortalIndex.value());
+
+		// render scene of the connected portal to our texture
+		Graphics::Context->OMSetRenderTargets(
+			1,
+			portal.rtv.GetAddressOf(),
+			portal.dsv.Get());
+
+		RenderSceneFull(*connectedPortal.camera, delta, total);
+	}
+
+	// switch to be only rendering to the main post process target
+	Graphics::Context->OMSetRenderTargets(
+		1,
+		m_singleRenderTargetView.GetAddressOf(),
+		m_singleDepthStencilView.Get());
+
+	// first render everything thats not portals
+	RenderSceneFull(camera, delta, total);
+
+	// render portals
+	for (u64 p = 0; p < m_portals.size(); ++p)
+	{
+		Portal& portal = m_portals.at(p);
+		if (!portal.connectedPortalIndex)
+			continue;
+		Portal& connectedPortal = m_portals.at(portal.connectedPortalIndex.value());
+		SimplePixelShader* ps = m_portalShader.get();
+		// use default pbr vertex shader
+		SimpleVertexShader* vs = m_vertexShader.get();
+		ps->SetShader();
+		vs->SetShader();
+		ps->SetSamplerState("textureSampler", m_defaultSampler);
+		ps->SetShaderResourceView("portalTexture", portal.srv);
+
+		vs->SetMatrix4x4("world", portal.transform->GetWorldMatrix());
+		vs->SetMatrix4x4("view", *camera.GetViewMatrix());
+		vs->SetMatrix4x4("projection", *camera.GetProjectionMatrix());
+		vs->SetMatrix4x4("worldInverseTranspose", portal.transform->GetWorldInverseTransposeMatrix());
+		// TODO: maybe specific vertex shader for portals, they dont need shadows
+		vs->SetMatrix4x4("lightView", (*m_lights)[0].shadowView);
+		vs->SetMatrix4x4("lightProjection", (*m_lights)[0].shadowProjection);
+
+		ps->CopyAllBufferData();
+		vs->CopyAllBufferData();
+
+		cube.BindBuffersAndDraw();
+	}
+}
+
 void ggp::Game::Draw(float deltaTime, float totalTime)
 {
 	RenderShadowMaps();
@@ -838,12 +1050,19 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	// Clear the back buffer (erase what's on screen) and depth buffer
 	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
 	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-	Graphics::Context->ClearRenderTargetView(m_postProcessRenderTargetView.Get(), m_backgroundColor.data());
-	Graphics::Context->OMSetRenderTargets(1, m_postProcessRenderTargetView.GetAddressOf(), Graphics::DepthBufferDSV.Get());
+	Graphics::Context->ClearDepthStencilView(m_singleDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	Graphics::Context->ClearRenderTargetView(m_singleRenderTargetView.Get(), m_backgroundColor.data());
+
+	for (Portal& portal : m_portals)
+	{
+		static const XMFLOAT4 portalEmptyColor = { 0, 0, 0, 1 };
+		Graphics::Context->ClearRenderTargetView(portal.rtv.Get(), &portalEmptyColor.x);
+		Graphics::Context->ClearDepthStencilView(portal.dsv.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	}
 
 	gassert(m_activeCamera < m_cameras.size());
 	Camera& camera = *m_cameras[m_activeCamera];
-	RenderSceneFull(camera, deltaTime, totalTime);
+	RenderSceneAndPortals(camera, deltaTime, totalTime);
 
 	// apply post process
 	// restore back buffer so we draw to screen
@@ -856,7 +1075,7 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	ps.SetInt("blurRadius", m_blurRadius);
 	ps.SetFloat("pixelWidth", 1.0f / f32(Window::Width()));
 	ps.SetFloat("pixelHeight", 1.0f / f32(Window::Height()));
-	ps.SetShaderResourceView("gameRenderTarget", m_postProcessShaderResourceView.Get());
+	ps.SetShaderResourceView("gameRenderTarget", m_singleShaderResourceView.Get());
 	ps.SetSamplerState("postProcessSampler", m_postProcessSamplerState.Get());
 	ps.CopyAllBufferData();
 	m_postProcessVertexShader->CopyAllBufferData();

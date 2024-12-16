@@ -47,6 +47,8 @@ namespace ggp
 		void UIBeginFrame(float deltaTime) noexcept;
 		void UIEndFrame() noexcept;
 		void BuildUI() noexcept;
+		void UpdatePortalLocations() noexcept;
+		void RenderSceneAndPortals(const Camera& camera, float delta, float total) noexcept;
 		void RenderShadowMaps() noexcept;
 		void RenderSceneFull(const Camera& camera, float deltaTime, float totalTime) noexcept;
 
@@ -71,8 +73,6 @@ namespace ggp
 		com_p<ID3D11SamplerState> m_postProcessSamplerState;
 		// per-postprocess pass resources (only one pass, atm)
 		std::unique_ptr<SimplePixelShader> m_postProcessPixelShader;
-		com_p<ID3D11RenderTargetView> m_postProcessRenderTargetView;
-		com_p<ID3D11ShaderResourceView> m_postProcessShaderResourceView;
 		i32 m_blurRadius = 0;
 
 		std::unique_ptr<std::array<Light, MAX_LIGHTS>> m_lights;
@@ -86,6 +86,29 @@ namespace ggp
 
 		Sky::SharedResources m_skyboxResources;
 		std::unique_ptr<Sky> m_skybox;
+
+		static constexpr u64 portalCount = 2;
+		struct Portal
+		{
+			std::optional<u64> connectedPortalIndex; // null if no connection, render as black
+			com_p<ID3D11RenderTargetView> rtv;
+			com_p<ID3D11ShaderResourceView> srv;
+			com_p<ID3D11DepthStencilView> dsv;
+			std::unique_ptr<Camera> camera;
+			// where to draw our render target
+			std::optional<Transform> transform;
+		};
+
+		std::unique_ptr<SimplePixelShader> m_portalShader;
+		std::array<Portal, portalCount> m_portals;
+		// std::array<ID3D11RenderTargetView*, 1 + portalCount> m_portalRenderTargets;
+		std::array<D3D11_VIEWPORT, 1 + portalCount> m_portalViewports;
+
+		// views of only the first texture in the texture2D array
+		com_p<ID3D11DepthStencilView> m_singleDepthStencilView;
+		com_p<ID3D11RenderTargetView> m_singleRenderTargetView; // draw portals to this
+		// view for sampling rendered scene
+		com_p<ID3D11ShaderResourceView> m_singleShaderResourceView;
 	};
 }
 

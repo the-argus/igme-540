@@ -61,7 +61,7 @@ namespace ggp
 			}
 			else if constexpr (std::is_same_v<T, std::string>)
 			{
-				m_contents.string = std::string(t);
+				new (&m_contents.string) std::string(t);
 				m_tag = Type::String;
 			}
 		}
@@ -69,14 +69,14 @@ namespace ggp
 		inline constexpr Variant(std::string&& t)
 			: m_tag(Type::String)
 		{
-			m_contents.string = std::move(t);
+			new (&m_contents.string) std::string(std::move(t));
 		}
 
 		inline constexpr Variant(const Variant& other)
 			: m_tag(other.m_tag)
 		{
 			if (other.m_tag == Type::String)
-				m_contents.string = other.m_contents.string;
+				new (&m_contents.string) std::string(other.m_contents.string);
 			else
 				std::memcpy(&m_contents, &other.m_contents, sizeof(m_contents));
 		}
@@ -92,7 +92,7 @@ namespace ggp
 			: m_tag(other.m_tag)
 		{
 			if (other.m_tag == Type::String)
-				m_contents.string = std::move(other.m_contents.string);
+				new (&m_contents.string) std::string(std::move(other.m_contents.string));
 			else
 				std::memcpy(&m_contents, &other.m_contents, sizeof(m_contents));
 		}
