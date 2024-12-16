@@ -48,6 +48,7 @@ namespace ggp
 		void UIEndFrame() noexcept;
 		void BuildUI() noexcept;
 		void RenderShadowMaps() noexcept;
+		void RenderSceneFull(const Camera& camera, float deltaTime, float totalTime) noexcept;
 
 		bool m_spinningEnabled = true;
 		std::array<float, 4> m_backgroundColor = { 0 };

@@ -45,6 +45,8 @@ namespace ggp
 		void Update(f32 dt) noexcept;
 
 		inline Transform GetTransform() noexcept { return m_transform; }
+		inline Transform& GetTransformRef() noexcept { return m_transform; }
+		inline const Transform& GetTransformRef() const noexcept { return m_transform; }
 		inline f32 GetFov() noexcept { return m_fov; }
 
 		inline bool IsLocked() const noexcept { return m_isLocked; }

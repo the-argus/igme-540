@@ -778,18 +778,8 @@ void ggp::Game::RenderShadowMaps() noexcept
 	Graphics::Context->RSSetState(0);
 }
 
-void ggp::Game::Draw(float deltaTime, float totalTime)
+void ggp::Game::RenderSceneFull(const Camera& camera, float deltaTime, float totalTime) noexcept
 {
-	RenderShadowMaps();
-
-	// Clear the back buffer (erase what's on screen) and depth buffer
-	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
-	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-	Graphics::Context->ClearRenderTargetView(m_postProcessRenderTargetView.Get(), m_backgroundColor.data());
-	Graphics::Context->OMSetRenderTargets(1, m_postProcessRenderTargetView.GetAddressOf(), Graphics::DepthBufferDSV.Get());
-
-	gassert(m_activeCamera < m_cameras.size());
-	Camera& camera = *m_cameras[m_activeCamera];
 	for (Entity& entity : m_entities)
 	{
 		if (!entity.GetMaterial() || !entity.GetMesh())
@@ -813,7 +803,7 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 
 			ps->SetFloat4("colorTint", entity.GetMaterial()->GetColor());
 			ps->SetFloat("roughness", entity.GetMaterial()->GetRoughness());
-			ps->SetFloat3("cameraPosition", camera.GetTransform().GetPosition());
+			ps->SetFloat3("cameraPosition", camera.GetTransformRef().GetPosition());
 			ps->SetFloat("totalTime", totalTime);
 			ps->SetData("lights", m_lights->data(), u32(m_lights->size() * sizeof(Light)));
 			ps->SetFloat2("uvOffset", entity.GetMaterial()->GetUVOffset());
@@ -839,6 +829,21 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	}
 
 	m_skybox->Draw(m_skyboxResources, *camera.GetViewMatrix(), *camera.GetProjectionMatrix());
+}
+
+void ggp::Game::Draw(float deltaTime, float totalTime)
+{
+	RenderShadowMaps();
+
+	// Clear the back buffer (erase what's on screen) and depth buffer
+	Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(), m_backgroundColor.data());
+	Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	Graphics::Context->ClearRenderTargetView(m_postProcessRenderTargetView.Get(), m_backgroundColor.data());
+	Graphics::Context->OMSetRenderTargets(1, m_postProcessRenderTargetView.GetAddressOf(), Graphics::DepthBufferDSV.Get());
+
+	gassert(m_activeCamera < m_cameras.size());
+	Camera& camera = *m_cameras[m_activeCamera];
+	RenderSceneFull(camera, deltaTime, totalTime);
 
 	// apply post process
 	// restore back buffer so we draw to screen

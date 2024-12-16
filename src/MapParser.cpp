@@ -2,6 +2,7 @@
 #include "ggp_dict.h"
 #include "ggp_math.h"
 #include "Texture.h"
+#include "Variant.h"
 #include "PathHelpers.h"
 #include <array>
 #include <optional>
@@ -95,7 +96,7 @@ namespace ggp::MapParser
 
 	struct MapEntity
 	{
-		dict<std::string> properties;
+		dict<Variant> properties;
 		std::vector<Brush> brushes;
 		XMFLOAT3 center;
 		OriginType originType = OriginType::BoundsCenter;
@@ -474,7 +475,7 @@ namespace ggp::MapParser
 				break;
 			XMFLOAT3 vectorForm;
 			f32* start = &vectorForm.x;
-			std::string& originStr = entity.properties.at("origin");
+			const auto& originStr = entity.properties.at("origin").value<std::string>();
 			const auto floatToString = [](auto sv) -> f32 { return std::stof(std::string(std::cbegin(sv), std::cend(sv))); };
 			auto iter = originStr | std::views::split(' ') | std::views::transform(floatToString);
 			// write floats into vectorForm, stop when pointer goes over z
@@ -753,7 +754,7 @@ namespace ggp::MapParser
 		{
 			const MapEntity& entity = map.entities.at(e);
 			auto& props = entity.properties;
-			std::string classname = props.contains("classname") ? props.at("classname") : "misc_unknown";
+			std::string classname = props.contains("classname") ? std::string(props.at("classname")) : "misc_unknown";
 			return "entity_" + std::to_string(e) + "_" + classname;
 		};
 
@@ -765,7 +766,8 @@ namespace ggp::MapParser
 			const MapEntity& entity = map.entities.at(e);
 			Transform t = out.mapRoot.GetTransform().AddChild();
 			t.SetPosition(entity.center);
-			out.elements.emplace_back(nullptr, nullptr, t, classnameForEntity(e));
+			out.elements.emplace_back(
+				nullptr, nullptr, t, dict<Variant>(entity.properties), classnameForEntity(e));
 		}
 
 		for (const TextureData& tex : map.textures)
