@@ -196,7 +196,7 @@ namespace ggp
 		const bool success = XMMatrixDecompose(outScale, outQuat, outPos, mat);
 		// TODO: switch to propagating by transform instead of by matrix, or implement a decompose w/ skew
 		// see https://gabormakesgames.com/blog_transforms_matrices.html
-		gassert(success, "failed to decompose matrix- probably skew introduced by non-uniform transform");
+		gassert(success, "failed to decompose matrix- probably skew introduced by non-uniform scale");
 	}
 
 	inline DirectX::XMVECTOR TransformHierarchy::LoadPosition(Handle h) const noexcept

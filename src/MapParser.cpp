@@ -283,7 +283,7 @@ namespace ggp::MapParser
 		vSign *= Sign(face.uvExtra.scaleY);
 		const XMVECTOR rot = XMQuaternionRotationAxis(planeNormal, DegToRad(-face.uvExtra.rot) * vSign);
 		// NOTE: unsure of multiplication order here, UVs may be messed up bc of this
-		XMVECTOR rotatedUAxis = XMLoadFloat3(uAxis) * rot;
+		XMVECTOR rotatedUAxis = rot * XMLoadFloat3(uAxis);
 		return XMVectorSetW(rotatedUAxis, vSign);
 	}
 
@@ -378,8 +378,8 @@ namespace ggp::MapParser
 						tangent = getStandardTangent(face);
 					}
 
-					auto duplicate = std::find_if(std::begin(faceGeo.vertices), std::end(faceGeo.vertices), [&vertex](const FaceVertex& fv) {
-						return !XMComparisonAllTrue(XMVector3EqualR(XMLoadFloat3(&fv.vertex), vertex));
+					const auto duplicate = std::find_if(std::begin(faceGeo.vertices), std::end(faceGeo.vertices), [&vertex](const FaceVertex& fv) {
+						return XMComparisonAllTrue(XMVector3EqualR(XMLoadFloat3(&fv.vertex), vertex));
 					});
 
 					if (duplicate == std::end(faceGeo.vertices))
@@ -509,6 +509,7 @@ namespace ggp::MapParser
 			for (const Brush& b : entity.brushes)
 				total += XMLoadFloat3(&b.center);
 			total /= f32(entity.brushes.size());
+			XMStoreFloat3(&entity.center, total);
 			break;
 		}
 		}
@@ -574,7 +575,7 @@ namespace ggp::MapParser
 						const f32 aAngle = std::atan2(aPV, aPU);
 						const f32 bAngle = std::atan2(bPV, bPU);
 
-						return aAngle < bAngle;
+						return aAngle >= bAngle;
 					};
 
 					std::stable_sort(std::begin(faceGeo.vertices), std::end(faceGeo.vertices), byWindingSort);
@@ -635,7 +636,8 @@ namespace ggp::MapParser
 						XMStoreFloat3(rw, XMLoadFloat3(rw) - entityCenter);
 					}
 
-					const u64 numTris = max(i64(faceGeo.vertices.size()) - 2, 0);
+					const i64 numTris = i64(faceGeo.vertices.size()) - 2;
+					gassert(numTris >= 0, "not enough vertices present to make triangles");
 
 					for (u32 i = 0; i < numTris * 3; ++i)
 					{
@@ -881,14 +883,14 @@ namespace ggp::MapParser
 		const auto submitCurrentFaceToCurrentBrush = [&]()
 		{
 			const XMVECTOR v0 = XMLoadFloat3(&currentFace.planePoints.v.at(0));
-			XMVECTOR v0v1 = XMLoadFloat3(&currentFace.planePoints.v.at(1));
-			XMVectorSubtract(v0v1, v0);
-			XMVECTOR v1v2 = XMLoadFloat3(&currentFace.planePoints.v.at(2));
-			XMVectorSubtract(v1v2, XMLoadFloat3(&currentFace.planePoints.v.at(1)));
+			const XMVECTOR v1 = XMLoadFloat3(&currentFace.planePoints.v.at(1));
+			const XMVECTOR v2 = XMLoadFloat3(&currentFace.planePoints.v.at(2));
+			const XMVECTOR from0To1 = v1 - v0;
+			const XMVECTOR from1To2 = v2 - v1;
 
-			XMStoreFloat3(&currentFace.planeNormal, XMVector3Normalize(XMVector3Cross(v1v2, v0v1)));
+			XMStoreFloat3(&currentFace.planeNormal, XMVector3Normalize(XMVector3Cross(from1To2, from0To1)));
 			currentFace.planeDistance = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&currentFace.planeNormal), v0));
-			assert(currentFace.uvValve.has_value() == isValveUVs);
+			gassert(currentFace.uvValve.has_value() == isValveUVs);
 			currentBrush.faces.push_back(std::move(currentFace));
 			currentFace = {};
 		};

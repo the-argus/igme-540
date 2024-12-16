@@ -522,6 +522,7 @@ void ggp::Game::LoadCubemapAndCreateSkybox()
 
 void ggp::Game::CreateEntities()
 {
+	/*
 	Mesh* cube = m_meshes.at("cube.obj").get();
 	Mesh* cylinder = m_meshes.at("cylinder.obj").get();
 	Mesh* helix = m_meshes.at("helix.obj").get();
@@ -562,6 +563,7 @@ void ggp::Game::CreateEntities()
 	// floor has hardcoded position
 	floor.GetTransform().SetPosition({ 0, -5, 0 });
 	floor.GetTransform().SetScale({ 30, 1, 30 });
+	*/
 
 	std::ifstream mapfile;
 	mapfile.open(FixPath(L"../../levels/debug.map"));
@@ -571,6 +573,7 @@ void ggp::Game::CreateEntities()
 		.pbrPixelShader = m_pixelShader.get(),
 		.pbrVertexShader = m_vertexShader.get(),
 		.pbrTextureSampler = m_defaultSampler.Get(),
+		.scaleFactor = 1.0f / 32.f,
 	};
 
 	MapParser::MapResult result = MapParser::parse(mapfile, settings);
@@ -619,11 +622,11 @@ void ggp::Game::Update(float deltaTime, float totalTime)
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
 
-	if (m_spinningEnabled)
+	/*if (m_spinningEnabled)
 	{
 		Transform root = m_entities[0].GetTransform();
 		SpinRecursive(deltaTime, totalTime, root);
-	}
+	}*/
 
 	gassert(m_activeCamera < m_cameras.size());
 	m_cameras[m_activeCamera]->Update(deltaTime);
@@ -670,7 +673,9 @@ void ggp::Game::BuildUI() noexcept
 		}
 	}
 
-	if (ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled))
+	ImGui::Checkbox("Enable spinning and stuff (prevents DragFloat3 from working, setting every frame)", &m_spinningEnabled);
+
+	if (m_spinningEnabled)
 	{
 		std::array<char, 64> buf;
 		for (size_t i = 0; i < m_entities.size(); ++i) {
@@ -791,6 +796,12 @@ void ggp::Game::Draw(float deltaTime, float totalTime)
 	{
 		if (!entity.GetMaterial() || !entity.GetMesh())
 			continue;
+
+		printf("drawing entity %s\n", entity.GetDebugName());
+		if (std::string("entity_0_worldspawn___TB_empty") == entity.GetDebugName())
+		{
+			printf("worldspawn found\n");
+		}
 
 		// activate entity's shaders
 		entity.GetMaterial()->GetPixelShader()->SetShader();
